@@ -26,7 +26,7 @@ type customClaims struct {
 
 var _ auth.TokenManager = (*JWTManager)(nil)
 
-func NewJWTManager(secret string, expire time.Duration) *JWTManager {
+func NewTokenManagerRepositoryJWT(secret string, expire time.Duration) *JWTManager {
 	return &JWTManager{
 		secret: []byte(secret),
 		expire: expire,

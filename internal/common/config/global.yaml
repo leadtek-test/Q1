@@ -16,3 +16,7 @@ posgres:
   dbname: "q1"
 
 server-addr: :8080
+
+security:
+  jwt-secret: 123456
+  jwt-expire-time: 15m

@@ -12,7 +12,7 @@ import (
 )
 
 func TestNewJWTManager(t *testing.T) {
-	m := NewJWTManager("secret", time.Minute)
+	m := NewTokenManagerRepositoryJWT("secret", time.Minute)
 	if string(m.secret) != "secret" {
 		t.Fatalf("unexpected secret: %q", string(m.secret))
 	}
@@ -23,7 +23,7 @@ func TestNewJWTManager(t *testing.T) {
 
 func TestJWTManagerGenerate(t *testing.T) {
 	t.Run("secret not configured", func(t *testing.T) {
-		m := NewJWTManager("", time.Minute)
+		m := NewTokenManagerRepositoryJWT("", time.Minute)
 		token, expireAt, err := m.Generate(1, "alice")
 		if token != "" {
 			t.Fatalf("token should be empty")
@@ -35,7 +35,7 @@ func TestJWTManagerGenerate(t *testing.T) {
 	})
 
 	t.Run("invalid expire config", func(t *testing.T) {
-		m := NewJWTManager("secret", 0)
+		m := NewTokenManagerRepositoryJWT("secret", 0)
 		token, expireAt, err := m.Generate(1, "alice")
 		if token != "" {
 			t.Fatalf("token should be empty")
@@ -47,7 +47,7 @@ func TestJWTManagerGenerate(t *testing.T) {
 	})
 
 	t.Run("success", func(t *testing.T) {
-		m := NewJWTManager("secret", 2*time.Minute)
+		m := NewTokenManagerRepositoryJWT("secret", 2*time.Minute)
 		start := time.Now().UTC()
 		token, expireAt, err := m.Generate(7, "alice")
 		if err != nil {
@@ -83,25 +83,25 @@ func TestJWTManagerGenerate(t *testing.T) {
 
 func TestJWTManagerParse(t *testing.T) {
 	t.Run("secret not configured", func(t *testing.T) {
-		m := NewJWTManager("", time.Minute)
+		m := NewTokenManagerRepositoryJWT("", time.Minute)
 		_, err := m.Parse("x")
 		assertErrno(t, err, consts.ErrnoAuthJWTSecretNotConfigured)
 	})
 
 	t.Run("malformed token", func(t *testing.T) {
-		m := NewJWTManager("secret", time.Minute)
+		m := NewTokenManagerRepositoryJWT("secret", time.Minute)
 		_, err := m.Parse("not-a-jwt")
 		assertErrno(t, err, consts.ErrnoAuthJWTMalformedToken)
 	})
 
 	t.Run("signature invalid", func(t *testing.T) {
-		issuer := NewJWTManager("secret-1", time.Minute)
+		issuer := NewTokenManagerRepositoryJWT("secret-1", time.Minute)
 		token, _, err := issuer.Generate(3, "bob")
 		if err != nil {
 			t.Fatalf("generate token failed: %v", err)
 		}
 
-		verifier := NewJWTManager("secret-2", time.Minute)
+		verifier := NewTokenManagerRepositoryJWT("secret-2", time.Minute)
 		_, err = verifier.Parse(token)
 		assertErrno(t, err, consts.ErrnoAuthJWTSignatureInvalid)
 	})
@@ -116,7 +116,7 @@ func TestJWTManagerParse(t *testing.T) {
 			},
 		})
 
-		m := NewJWTManager("secret", time.Minute)
+		m := NewTokenManagerRepositoryJWT("secret", time.Minute)
 		_, err := m.Parse(token)
 		assertErrno(t, err, consts.ErrnoAuthJWTExpiredToken)
 	})
@@ -130,7 +130,7 @@ func TestJWTManagerParse(t *testing.T) {
 			},
 		})
 
-		m := NewJWTManager("secret", time.Minute)
+		m := NewTokenManagerRepositoryJWT("secret", time.Minute)
 		_, err := m.Parse(token)
 		assertErrno(t, err, consts.ErrnoAuthJWTInvalidClaims)
 	})
@@ -146,7 +146,7 @@ func TestJWTManagerParse(t *testing.T) {
 			},
 		})
 
-		m := NewJWTManager("secret", time.Minute)
+		m := NewTokenManagerRepositoryJWT("secret", time.Minute)
 		_, err := m.Parse(token)
 		assertErrno(t, err, consts.ErrnoAuthJWTParseFailed)
 	})
@@ -161,13 +161,13 @@ func TestJWTManagerParse(t *testing.T) {
 			},
 		}, jwt.SigningMethodHS512)
 
-		m := NewJWTManager("secret", time.Minute)
+		m := NewTokenManagerRepositoryJWT("secret", time.Minute)
 		_, err := m.Parse(token)
 		assertErrno(t, err, consts.ErrnoAuthJWTParseFailed)
 	})
 
 	t.Run("success", func(t *testing.T) {
-		m := NewJWTManager("secret", 5*time.Minute)
+		m := NewTokenManagerRepositoryJWT("secret", 5*time.Minute)
 		token, expireAt, err := m.Generate(42, "charlie")
 		if err != nil {
 			t.Fatalf("generate token failed: %v", err)

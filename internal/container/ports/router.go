@@ -7,9 +7,10 @@ import (
 )
 
 type ServerOptions struct {
-	BaseURL      string
-	Middlewares  []gin.HandlerFunc
-	ErrorHandler func(*gin.Context, error, int)
+	BaseURL              string
+	Middlewares          []gin.HandlerFunc
+	ProtectedMiddlewares []gin.HandlerFunc
+	ErrorHandler         func(*gin.Context, error, int)
 }
 
 func RegisterHandlersWithOption(router gin.IRouter, handlers ServerInterface, options ServerOptions) {
@@ -19,14 +20,12 @@ func RegisterHandlersWithOption(router gin.IRouter, handlers ServerInterface, op
 			c.JSON(statusCode, gin.H{"msg": err.Error()})
 		}
 	}
-	if len(options.Middlewares) > 0 {
-		for _, m := range options.Middlewares {
-			router.Use(m)
-		}
-	}
+	useMiddlewares(router, options.Middlewares)
 
 	router.GET("/healthz", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+		response := gin.H{"status": "ok"}
+		c.Set("response", response)
+		c.JSON(http.StatusOK, response)
 	})
 
 	v1Group := router.Group(options.BaseURL + "/v1")
@@ -38,7 +37,7 @@ func RegisterHandlersWithOption(router gin.IRouter, handlers ServerInterface, op
 		}
 
 		protected := v1Group.Group("")
-		protected.Use()
+		useMiddlewares(protected, options.ProtectedMiddlewares)
 		{
 			protected.POST("/files", handlers.Upload)
 
@@ -48,4 +47,15 @@ func RegisterHandlersWithOption(router gin.IRouter, handlers ServerInterface, op
 			protected.DELETE("/containers/:id", handlers.DeleteContainer)
 		}
 	}
+}
+
+type middlewareRegistrar interface {
+	Use(...gin.HandlerFunc) gin.IRoutes
+}
+
+func useMiddlewares(target middlewareRegistrar, middlewares []gin.HandlerFunc) {
+	if len(middlewares) == 0 {
+		return
+	}
+	target.Use(middlewares...)
 }
