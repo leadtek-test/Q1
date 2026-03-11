@@ -35,7 +35,8 @@ func setOutput(logger *logrus.Logger) {
 	if err != nil {
 		panic(err)
 	}
-	logger.SetOutput(file)
+	_ = file.Close()
+	logger.SetOutput(os.Stdout)
 
 	rotateInfo, err := rotatelogs.New(
 		folder+filePath+".%Y%m%d",
@@ -60,9 +61,7 @@ func setOutput(logger *logrus.Logger) {
 		logrus.FatalLevel: rotateError,
 		logrus.PanicLevel: rotateError,
 	}
-	logrus.AddHook(lfshook.NewHook(rotationMap, &logrus.JSONFormatter{
-		TimestampFormat: time.DateTime,
-	}))
+	logger.AddHook(lfshook.NewHook(rotationMap, fileFormatter()))
 }
 
 func SetFormatter(logger *logrus.Logger) {
@@ -80,6 +79,17 @@ func SetFormatter(logger *logrus.Logger) {
 			ForceFormatting: true,
 			TimestampFormat: time.RFC3339,
 		})
+	}
+}
+
+func fileFormatter() logrus.Formatter {
+	return &logrus.JSONFormatter{
+		TimestampFormat: time.RFC3339,
+		FieldMap: logrus.FieldMap{
+			logrus.FieldKeyLevel: "severity",
+			logrus.FieldKeyTime:  "time",
+			logrus.FieldKeyMsg:   "message",
+		},
 	}
 }
 
