@@ -46,7 +46,7 @@ func (m *AuthMiddleware) VerifyToken() gin.HandlerFunc {
 
 		claims, err := m.tokenManager.Parse(token)
 		if err != nil {
-			m.abortWithError(c, errors.NewWithError(consts.ErrnoAuthInvalidToken, err))
+			m.abortWithError(c, err)
 			return
 		}
 

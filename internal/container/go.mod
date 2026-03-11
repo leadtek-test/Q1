@@ -6,6 +6,7 @@ replace github.com/leadtek-test/q1/common => ../common
 
 require (
 	github.com/gin-gonic/gin v1.12.0
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/leadtek-test/q1/common v0.0.0-00010101000000-000000000000
 	github.com/spf13/viper v1.21.0
 )

@@ -15,6 +15,14 @@ const (
 	ErrnoAuthInvalidAuthorizationHeader = 3001
 	ErrnoAuthTokenManagerUnavailable    = 3002
 	ErrnoAuthInvalidToken               = 3003
+	ErrnoAuthJWTSecretNotConfigured     = 3004
+	ErrnoAuthJWTInvalidExpireConfig     = 3005
+	ErrnoAuthJWTSignFailed              = 3006
+	ErrnoAuthJWTMalformedToken          = 3007
+	ErrnoAuthJWTSignatureInvalid        = 3008
+	ErrnoAuthJWTExpiredToken            = 3009
+	ErrnoAuthJWTInvalidClaims           = 3010
+	ErrnoAuthJWTParseFailed             = 3011
 )
 
 var ErrMsg = map[int]string{
@@ -28,4 +36,12 @@ var ErrMsg = map[int]string{
 	ErrnoAuthInvalidAuthorizationHeader: "invalid Authorization header format",
 	ErrnoAuthTokenManagerUnavailable:    "auth token manager unavailable",
 	ErrnoAuthInvalidToken:               "invalid token",
+	ErrnoAuthJWTSecretNotConfigured:     "jwt secret is not configured",
+	ErrnoAuthJWTInvalidExpireConfig:     "jwt expire config is invalid",
+	ErrnoAuthJWTSignFailed:              "jwt token sign failed",
+	ErrnoAuthJWTMalformedToken:          "jwt token is malformed",
+	ErrnoAuthJWTSignatureInvalid:        "jwt token signature is invalid",
+	ErrnoAuthJWTExpiredToken:            "jwt token is expired",
+	ErrnoAuthJWTInvalidClaims:           "jwt token claims is invalid",
+	ErrnoAuthJWTParseFailed:             "jwt token parse failed",
 }
