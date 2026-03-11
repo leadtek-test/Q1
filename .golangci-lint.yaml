@@ -1,0 +1,55 @@
+version: "2"
+
+run:
+  timeout: 10m
+  tests: true
+  modules-download-mode: readonly
+  issues-exit-code: 1
+
+linters:
+  default: none
+  enable:
+    - bodyclose
+    - copyloopvar
+    - dupl
+    - errcheck
+    - errorlint
+    - gocritic
+    - gocyclo
+    - gosec
+    - govet
+    - ineffassign
+    - misspell
+    - nakedret
+    - nilerr
+    - noctx
+    - revive
+    - staticcheck
+    - unconvert
+    - unparam
+    - unused
+    - whitespace
+  settings:
+    dupl:
+      threshold: 150
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+    gocyclo:
+      min-complexity: 12
+    govet:
+      enable:
+        - shadow
+    nakedret:
+      max-func-lines: 25
+    revive:
+      confidence: 0.8
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+formatters:
+  enable:
+    - gofmt
+    - goimports

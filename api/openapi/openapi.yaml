@@ -1,0 +1,309 @@
+openapi: 3.0.3
+info:
+  title: Q1 Container Manager API
+  version: 1.0.0
+  description: RESTful API for user auth, file upload, and Docker container lifecycle.
+servers:
+  - url: http://localhost:8080
+tags:
+  - name: Auth
+  - name: File
+  - name: Container
+paths:
+  /healthz:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+  /api/v1/auth/register:
+    post:
+      tags: [Auth]
+      summary: Register user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/v1/files/upload:
+    post:
+      tags: [File]
+      summary: Upload a file (max 20MB)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/v1/containers:
+    post:
+      tags: [Container]
+      summary: Create container
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [image]
+              properties:
+                name:
+                  type: string
+                  example: csv-job
+                image:
+                  type: string
+                  example: busybox:latest
+                command:
+                  type: array
+                  items:
+                    type: string
+                env:
+                  type: object
+                  additionalProperties:
+                    type: string
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContainerResponse'
+    get:
+      tags: [Container]
+      summary: List user containers
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Container'
+  /api/v1/containers/{id}/start:
+    post:
+      tags: [Container]
+      summary: Start container
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContainerResponse'
+  /api/v1/containers/{id}/stop:
+    post:
+      tags: [Container]
+      summary: Stop container
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContainerResponse'
+  /api/v1/containers/{id}:
+    delete:
+      tags: [Container]
+      summary: Delete container
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: No content
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    AuthResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            userId:
+              type: integer
+            username:
+              type: string
+            token:
+              type: string
+            expiresAt:
+              type: string
+              format: date-time
+    FileResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/FileObject'
+    ContainerResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/Container'
+    Container:
+      type: object
+      properties:
+        id:
+          type: integer
+        userID:
+          type: integer
+        name:
+          type: string
+        image:
+          type: string
+        command:
+          type: array
+          items:
+            type: string
+        env:
+          type: object
+          additionalProperties:
+            type: string
+        runtimeID:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    FileObject:
+      type: object
+      properties:
+        id:
+          type: integer
+        userID:
+          type: integer
+        fileName:
+          type: string
+        objectKey:
+          type: string
+        contentType:
+          type: string
+        size:
+          type: integer
+          format: int64
+        workspacePath:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string

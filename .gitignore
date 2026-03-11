@@ -28,8 +28,8 @@ go.work.sum
 .env
 
 # Editor/IDE
- .idea/
+.idea/
 # .vscode/
 
 .air.toml
-ref/
+../../gorder-v2-org-view/ref/
