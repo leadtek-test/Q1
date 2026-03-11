@@ -32,5 +32,6 @@ go.work.sum
 # .vscode/
 
 .air.toml
+.ai/
 internal/container/log
 internal/container/tmp
