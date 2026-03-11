@@ -19,6 +19,9 @@ func (e *Error) Error() string {
 	if e.msg != "" {
 		msg = e.msg
 	}
+	if e.err == nil {
+		return msg
+	}
 	return msg + " -> " + e.err.Error()
 }
 
