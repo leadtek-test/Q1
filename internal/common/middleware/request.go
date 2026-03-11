@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/leadtek-test/q1/internal/common/logging"
+	"github.com/leadtek-test/q1/common/logging"
 	"github.com/sirupsen/logrus"
 )
 

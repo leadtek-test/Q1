@@ -2,7 +2,7 @@ package server
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/leadtek-test/q1/internal/common/middleware"
+	"github.com/leadtek-test/q1/common/middleware"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )

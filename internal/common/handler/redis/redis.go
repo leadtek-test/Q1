@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/leadtek-test/q1/internal/common/handler/factory"
+	"github.com/leadtek-test/q1/common/handler/factory"
 	"github.com/redis/go-redis/v9"
 	"github.com/spf13/viper"
 )

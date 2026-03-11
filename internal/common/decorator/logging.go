@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/leadtek-test/q1/internal/common/logging"
+	"github.com/leadtek-test/q1/common/logging"
 	"github.com/sirupsen/logrus"
 )
 

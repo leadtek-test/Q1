@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/leadtek-test/q1/internal/common/consts"
+	"github.com/leadtek-test/q1/common/consts"
 )
 
 type Error struct {

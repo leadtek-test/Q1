@@ -32,4 +32,5 @@ go.work.sum
 # .vscode/
 
 .air.toml
-../../gorder-v2-org-view/ref/
+internal/container/log
+internal/container/tmp

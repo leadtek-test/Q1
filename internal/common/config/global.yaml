@@ -14,3 +14,5 @@ posgres:
   host: localhost
   port: 5432
   dbname: "q1"
+
+server-addr: localhost:8080

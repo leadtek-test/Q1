@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/leadtek-test/q1/internal/common/logging"
+	"github.com/leadtek-test/q1/common/logging"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 )
