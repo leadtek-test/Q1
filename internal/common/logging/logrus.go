@@ -15,7 +15,7 @@ import (
 func Init() {
 	SetFormatter(logrus.StandardLogger())
 	logrus.SetLevel(logrus.DebugLevel)
-	//setOutput(logrus.StandardLogger())
+	setOutput(logrus.StandardLogger())
 }
 
 func setOutput(logger *logrus.Logger) {
@@ -46,7 +46,7 @@ func setOutput(logger *logrus.Logger) {
 	if err != nil {
 		panic(err)
 	}
-	rotateError, err := rotatelogs.New(
+	rotateError, _ := rotatelogs.New(
 		folder+errorPath+".%Y%m%d",
 		rotatelogs.WithLinkName("errors.log"),
 		rotatelogs.WithMaxAge(7*24*time.Hour),
