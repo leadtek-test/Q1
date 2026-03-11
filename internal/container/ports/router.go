@@ -1,6 +1,10 @@
 package ports
 
-import "github.com/gin-gonic/gin"
+import (
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+)
 
 type ServerOptions struct {
 	BaseURL      string
@@ -20,6 +24,28 @@ func RegisterHandlersWithOption(router gin.IRouter, handlers ServerInterface, op
 			router.Use(m)
 		}
 	}
-	// TODO add router register here
-	//router.POST(options.BaseURL+"/customer/:customer_id/orders", handlers.PostCustomerCustomerIdOrders)
+
+	router.GET("/healthz", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
+
+	v1Group := router.Group(options.BaseURL + "/v1")
+	{
+		auth := v1Group.Group("/auth")
+		{
+			auth.POST("/register", handlers.Register)
+			auth.POST("/login", handlers.Login)
+		}
+
+		protected := v1Group.Group("")
+		protected.Use()
+		{
+			protected.POST("/files", handlers.Upload)
+
+			protected.POST("/containers", handlers.CreateContainer)
+			protected.GET("/containers", handlers.ListContainers)
+			protected.PUT("/containers/status", handlers.UpdateContainerStatus)
+			protected.DELETE("/containers/:id", handlers.DeleteContainer)
+		}
+	}
 }
