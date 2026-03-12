@@ -36,7 +36,7 @@ func (u *User) Fill(db *gorm.DB) *gorm.DB {
 
 func (u *User) fillWhere(db *gorm.DB) *gorm.DB {
 	if len(u.ID) > 0 {
-		db = db.Where("id in (?)", u.IDs)
+		db = db.Where("id in (?)", u.ID)
 	}
 	if len(u.Username) > 0 {
 		db = db.Where("username IN (?)", u.Username)
