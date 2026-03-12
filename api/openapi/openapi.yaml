@@ -1,309 +1,970 @@
 openapi: 3.0.3
 info:
-  title: Q1 Container Manager API
+  title: Q1 容器服務 API
   version: 1.0.0
-  description: RESTful API for user auth, file upload, and Docker container lifecycle.
+  description: |
+    此文件依照目前專案程式碼實際行為撰寫。
+
+    重要回應規則：
+    - 業務成功與業務失敗都回傳 HTTP 200。
+    - 需以 `errno` 判斷成功/失敗（`0` 代表成功，非 `0` 代表錯誤）。
+    - 大多數 API 都使用統一封裝：`{ "errno": number, "message": string, "data": any|null }`。
+    - 只有 `/healthz` 不走上述封裝格式。
 servers:
   - url: http://localhost:8080
 tags:
+  - name: Health
   - name: Auth
   - name: File
   - name: Container
 paths:
   /healthz:
     get:
-      summary: Health check
+      tags:
+        - Health
+      summary: 服務健康檢查
+      description: |
+        輕量級存活檢查端點。
+        此端點不使用統一封裝，直接回傳純 JSON。
       responses:
         '200':
-          description: OK
+          description: 服務可正常回應。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthzResponse'
+              examples:
+                success:
+                  value:
+                    status: ok
+
   /api/v1/auth/register:
     post:
-      tags: [Auth]
-      summary: Register user
+      tags:
+        - Auth
+      summary: 註冊使用者
+      description: |
+        建立新使用者帳號。
+
+        系統行為：
+        - `username`、`password` 會先做前後空白裁切。
+        - 驗證規則：
+          - `username` 不可為空。
+          - `password` 不可為空。
+          - `password` 長度至少 6。
+        - 會先檢查帳號是否重複，再建立資料。
+        - 密碼以 MD5 雜湊後存入資料庫。
+
+        HTTP Status Code：
+        - 成功與業務錯誤皆回傳 `200`。
+
+        常見業務錯誤（`errno`）：
+        - `1000`：JSON 綁定失敗。
+        - `4000`：使用者名稱為空。
+        - `4001`：密碼為空。
+        - `4002`：密碼長度不足。
+        - `4003`：使用者名稱已存在。
+        - `5000`：資料庫錯誤。
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required: [username, password]
-              properties:
-                username:
-                  type: string
-                password:
-                  type: string
-      responses:
-        '201':
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '409':
-          $ref: '#/components/responses/Conflict'
-  /api/v1/auth/login:
-    post:
-      tags: [Auth]
-      summary: Login user
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [username, password]
-              properties:
-                username:
-                  type: string
-                password:
-                  type: string
+              $ref: '#/components/schemas/RegisterRequest'
+            examples:
+              request:
+                value:
+                  username: alice
+                  password: "123456"
       responses:
         '200':
-          description: Success
+          description: 成功或業務錯誤（請看 `errno`）。
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-  /api/v1/files/upload:
+                $ref: '#/components/schemas/RegisterResponseEnvelope'
+              examples:
+                success:
+                  value:
+                    errno: 0
+                    message: success
+                    data:
+                      user_id: 12
+                      username: alice
+                bind_error:
+                  value:
+                    errno: 1000
+                    message: "bind request error -> invalid character"
+                    data: null
+                password_too_short:
+                  value:
+                    errno: 4002
+                    message: password must be at least 6 characters
+                    data: null
+                username_exists:
+                  value:
+                    errno: 4003
+                    message: username already exists
+                    data: null
+
+  /api/v1/auth/login:
     post:
-      tags: [File]
-      summary: Upload a file (max 20MB)
+      tags:
+        - Auth
+      summary: 使用者登入
+      description: |
+        驗證帳號密碼並回傳 JWT Token。
+
+        系統行為：
+        - `username`、`password` 會先做前後空白裁切。
+        - 驗證規則：
+          - `username` 不可為空。
+          - `password` 不可為空。
+          - `password` 長度至少 6。
+        - 驗證通過後簽發 JWT，並回傳過期時間。
+
+        目前程式碼行為備註（依現況如實記錄）：
+        - 若 repository 回傳「查到使用者」，目前會走 `errno=4003` 分支。
+        - 若 repository 回傳 `user not found`，會繼續進行密碼比對流程，可能回 `errno=4005`。
+
+        HTTP Status Code：
+        - 成功與業務錯誤皆回傳 `200`。
+
+        常見業務錯誤（`errno`）：
+        - `1000`：JSON 綁定失敗。
+        - `4000`：使用者名稱為空。
+        - `4001`：密碼為空。
+        - `4002`：密碼長度不足。
+        - `4003`：目前實作的「查到使用者」分支。
+        - `4005`：密碼不正確。
+        - `3004`：JWT secret 未設定。
+        - `3005`：JWT 過期時間設定無效。
+        - `3006`：JWT 簽章失敗。
+        - `5000`：資料庫錯誤。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            examples:
+              request:
+                value:
+                  username: alice
+                  password: "123456"
+      responses:
+        '200':
+          description: 成功或業務錯誤（請看 `errno`）。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponseEnvelope'
+              examples:
+                success:
+                  value:
+                    errno: 0
+                    message: success
+                    data:
+                      user_id: 12
+                      username: alice
+                      token: <jwt-token>
+                      expires_at: "2026-03-12T09:30:00Z"
+                invalid_password:
+                  value:
+                    errno: 4005
+                    message: password not match
+                    data: null
+                jwt_sign_failed:
+                  value:
+                    errno: 3006
+                    message: "jwt token sign failed -> some sign error"
+                    data: null
+
+  /api/v1/user/{id}/files:
+    post:
+      tags:
+        - File
+      summary: 上傳使用者檔案
+      description: |
+        上傳單一檔案，寫入本地 object storage 與 workspace，並建立 metadata 紀錄。
+
+        驗證機制：
+        - 需帶 `Authorization: Bearer <JWT>`。
+
+        系統行為：
+        - 路徑參數 `{id}` 為目標使用者 ID，必須是正整數。
+        - multipart 欄位名稱必須是 `file`。
+        - 大小上限來自 `file.max-size`，預設 `20MB`。
+        - 若 `Content-Type` 空值，會預設為 `application/octet-stream`。
+        - `object_key` 格式：`users/{user_id}/{random_hex}_{basename(file_name)}`。
+        - 會在本地 workspace 再存一份檔案並回傳路徑。
+
+        授權備註：
+        - 目前程式碼不會強制檢查「JWT 使用者 ID 必須等於路徑 `{id}`」。
+
+        HTTP Status Code：
+        - 成功與業務錯誤皆回傳 `200`。
+
+        常見業務錯誤（`errno`）：
+        - Auth 中介層：`3000`、`3001`、`3004`、`3007`、`3008`、`3009`、`3010`、`3011`。
+        - `3003`：Token context 無 user id 或為 0。
+        - `1001`：路徑使用者 ID 無效。
+        - `6000`：缺少 `file` 欄位。
+        - `6002`：檔案開啟失敗。
+        - `6003`：檔案讀取失敗。
+        - `6004`：檔案超過大小限制。
+        - `6001`：檔名為空。
+        - `6005`：object storage 上傳失敗。
+        - `6006`：workspace 存檔失敗。
+        - `5000`：資料庫錯誤。
       security:
-        - bearerAuth: []
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TargetUserID'
       requestBody:
         required: true
         content:
           multipart/form-data:
             schema:
-              type: object
-              required: [file]
-              properties:
-                file:
-                  type: string
-                  format: binary
+              $ref: '#/components/schemas/UploadFileRequest'
       responses:
-        '201':
-          description: Created
+        '200':
+          description: 成功或業務錯誤（請看 `errno`）。
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/FileResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
+                $ref: '#/components/schemas/UploadFileResponseEnvelope'
+              examples:
+                success:
+                  value:
+                    errno: 0
+                    message: success
+                    data:
+                      id: 11
+                      user_id: 9
+                      file_name: report.csv
+                      object_key: users/9/af20ab21f00e9a128b2d31ee_report.csv
+                      content_type: text/csv
+                      size: 1024
+                      workspace_path: ./workspace/9/af20ab21f00e9a128b2d31ee_report.csv
+                      created_at: "2026-03-12T09:30:00Z"
+                missing_file:
+                  value:
+                    errno: 6000
+                    message: "file is required -> http: no such file"
+                    data: null
+                oversized:
+                  value:
+                    errno: 6004
+                    message: file size exceeds 20MB limit
+                    data: null
+
   /api/v1/containers:
     post:
-      tags: [Container]
-      summary: Create container
+      tags:
+        - Container
+      summary: 建立容器
+      description: |
+        建立容器 runtime，並儲存容器資料。
+
+        驗證機制：
+        - 需帶 `Authorization: Bearer <JWT>`。
+
+        系統行為：
+        - 使用 JWT claims 內的 user id 作為容器擁有者。
+        - `image` 去空白後不可為空。
+        - `name` 若空值，預設為 `default`。
+        - `command` 若為 `null`，會轉為空陣列。
+        - `env` 若為 `null`，會轉為空物件。
+        - 建立使用者 workspace 目錄。
+        - 拉取映像並建立 Docker 容器。
+        - 將 workspace 掛載到容器內 `/workspace`。
+        - 初始狀態為 `created`。
+
+        HTTP Status Code：
+        - 成功與業務錯誤皆回傳 `200`。
+
+        常見業務錯誤（`errno`）：
+        - Auth 中介層：`3000`、`3001`、`3004`、`3007`、`3008`、`3009`、`3010`、`3011`。
+        - `3003`：Token context 無 user id 或為 0。
+        - `1000`：JSON 綁定失敗。
+        - `7000`：image 為空。
+        - `7001`：workspace 準備失敗。
+        - `7002`：runtime 建立失敗（含 image pull / container create 失敗）。
+        - `5000`：資料庫錯誤。
       security:
-        - bearerAuth: []
+        - BearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required: [image]
-              properties:
-                name:
-                  type: string
-                  example: csv-job
-                image:
-                  type: string
-                  example: busybox:latest
-                command:
-                  type: array
-                  items:
-                    type: string
-                env:
-                  type: object
-                  additionalProperties:
-                    type: string
+              $ref: '#/components/schemas/CreateContainerRequest'
+            examples:
+              request:
+                value:
+                  name: csv-job
+                  image: busybox:latest
+                  command:
+                    - sh
+                    - -c
+                    - ls -la /workspace
+                  env:
+                    TZ: Asia/Taipei
       responses:
-        '201':
-          description: Created
+        '200':
+          description: 成功或業務錯誤（請看 `errno`）。
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ContainerResponse'
+                $ref: '#/components/schemas/ContainerResponseEnvelope'
+              examples:
+                success:
+                  value:
+                    errno: 0
+                    message: success
+                    data:
+                      id: 21
+                      user_id: 9
+                      name: csv-job
+                      image: busybox:latest
+                      command:
+                        - sh
+                        - -c
+                        - ls -la /workspace
+                      env:
+                        TZ: Asia/Taipei
+                      runtime_id: 4d17d7f9fc4ec8ea5d7ad2e6d6f3c4b2...
+                      status: created
+                      created_at: "2026-03-12T09:30:00Z"
+                      updated_at: "2026-03-12T09:30:00Z"
+                image_required:
+                  value:
+                    errno: 7000
+                    message: container image is required
+                    data: null
     get:
-      tags: [Container]
-      summary: List user containers
+      tags:
+        - Container
+      summary: 查詢登入者容器列表
+      description: |
+        查詢目前登入使用者的全部容器。
+
+        驗證機制：
+        - 需帶 `Authorization: Bearer <JWT>`。
+
+        系統行為：
+        - 使用 JWT claims 內 user id 查詢。
+        - 回傳排序為 `id DESC`（新到舊）。
+
+        HTTP Status Code：
+        - 成功與業務錯誤皆回傳 `200`。
+
+        常見業務錯誤（`errno`）：
+        - Auth 中介層：`3000`、`3001`、`3004`、`3007`、`3008`、`3009`、`3010`、`3011`。
+        - `3003`：Token context 無 user id 或為 0。
+        - `5000`：資料庫錯誤。
       security:
-        - bearerAuth: []
+        - BearerAuth: []
       responses:
         '200':
-          description: Success
+          description: 成功或業務錯誤（請看 `errno`）。
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Container'
-  /api/v1/containers/{id}/start:
-    post:
-      tags: [Container]
-      summary: Start container
+                $ref: '#/components/schemas/ListContainersResponseEnvelope'
+              examples:
+                success:
+                  value:
+                    errno: 0
+                    message: success
+                    data:
+                      - id: 21
+                        user_id: 9
+                        name: csv-job
+                        image: busybox:latest
+                        command: []
+                        env: {}
+                        runtime_id: 4d17d7f9fc4ec8ea5d7ad2e6d6f3c4b2...
+                        status: running
+                        created_at: "2026-03-12T09:30:00Z"
+                        updated_at: "2026-03-12T10:01:00Z"
+                invalid_token:
+                  value:
+                    errno: 3000
+                    message: missing Authorization header
+                    data: null
+
+  /api/v1/containers/{id}/status:
+    put:
+      tags:
+        - Container
+      summary: 更新容器狀態（啟動/停止）
+      description: |
+        對單一容器執行啟動或停止。
+
+        驗證機制：
+        - 需帶 `Authorization: Bearer <JWT>`。
+
+        輸入行為：
+        - 路徑 `{id}` 必須是正整數。
+        - `action` 會先 trim 並轉小寫後判斷。
+        - 可接受值：
+          - `start`、`running`（都視為啟動）
+          - `stop`、`stopped`（都視為停止）
+
+        系統行為：
+        - 啟動冪等：已是 `running` 時直接回成功，不重複啟動。
+        - 停止冪等：非 `running` 時直接回成功，不重複停止。
+        - 狀態變化時會更新資料庫狀態。
+
+        HTTP Status Code：
+        - 成功與業務錯誤皆回傳 `200`。
+
+        常見業務錯誤（`errno`）：
+        - Auth 中介層：`3000`、`3001`、`3004`、`3007`、`3008`、`3009`、`3010`、`3011`。
+        - `3003`：Token context 無 user id 或為 0。
+        - `1001`：容器 ID 格式錯誤。
+        - `1000`：JSON 綁定失敗。
+        - `7004`：action 非支援值。
+        - `7003`：找不到容器或不屬於該使用者。
+        - `7005`：容器啟動失敗。
+        - `7006`：容器停止失敗。
+        - `5000`：資料庫錯誤。
       security:
-        - bearerAuth: []
+        - BearerAuth: []
       parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: integer
+        - $ref: '#/components/parameters/ContainerID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateContainerStatusRequest'
+            examples:
+              start:
+                value:
+                  action: start
+              stop_alias:
+                value:
+                  action: stopped
       responses:
         '200':
-          description: Success
+          description: 成功或業務錯誤（請看 `errno`）。
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ContainerResponse'
-  /api/v1/containers/{id}/stop:
-    post:
-      tags: [Container]
-      summary: Stop container
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: integer
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ContainerResponse'
+                $ref: '#/components/schemas/ContainerResponseEnvelope'
+              examples:
+                success:
+                  value:
+                    errno: 0
+                    message: success
+                    data:
+                      id: 21
+                      user_id: 9
+                      name: csv-job
+                      image: busybox:latest
+                      command: []
+                      env: {}
+                      runtime_id: 4d17d7f9fc4ec8ea5d7ad2e6d6f3c4b2...
+                      status: running
+                      created_at: "2026-03-12T09:30:00Z"
+                      updated_at: "2026-03-12T10:01:00Z"
+                invalid_action:
+                  value:
+                    errno: 7004
+                    message: invalid container status action
+                    data: null
+                not_found:
+                  value:
+                    errno: 7003
+                    message: container not found
+                    data: null
+
   /api/v1/containers/{id}:
     delete:
-      tags: [Container]
-      summary: Delete container
+      tags:
+        - Container
+      summary: 刪除容器
+      description: |
+        先刪除容器 runtime，再刪除資料庫記錄。
+
+        驗證機制：
+        - 需帶 `Authorization: Bearer <JWT>`。
+
+        系統行為：
+        - 路徑 `{id}` 必須是正整數。
+        - 先以 `{id}` + JWT 使用者身分查出容器。
+        - 先執行 runtime 刪除（Docker remove, force=true）。
+        - runtime 刪除成功後，才刪除資料庫紀錄。
+
+        HTTP Status Code：
+        - 成功與業務錯誤皆回傳 `200`。
+
+        常見業務錯誤（`errno`）：
+        - Auth 中介層：`3000`、`3001`、`3004`、`3007`、`3008`、`3009`、`3010`、`3011`。
+        - `3003`：Token context 無 user id 或為 0。
+        - `1001`：容器 ID 格式錯誤。
+        - `7003`：找不到容器或不屬於該使用者。
+        - `7007`：runtime 刪除失敗。
+        - `5000`：資料庫錯誤。
       security:
-        - bearerAuth: []
+        - BearerAuth: []
       parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: integer
+        - $ref: '#/components/parameters/ContainerID'
       responses:
-        '204':
-          description: No content
+        '200':
+          description: 成功或業務錯誤（請看 `errno`）。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteContainerResponseEnvelope'
+              examples:
+                success:
+                  value:
+                    errno: 0
+                    message: success
+                    data:
+                      deleted: true
+                runtime_delete_failed:
+                  value:
+                    errno: 7007
+                    message: "failed to delete container runtime -> some runtime error"
+                    data: null
+
 components:
   securitySchemes:
-    bearerAuth:
+    BearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
-  responses:
-    BadRequest:
-      description: Bad request
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    Unauthorized:
-      description: Unauthorized
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    Conflict:
-      description: Conflict
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
+
+  parameters:
+    TargetUserID:
+      in: path
+      name: id
+      required: true
+      description: 上傳 API 的目標使用者 ID，必須為正整數。
+      schema:
+        type: integer
+        minimum: 1
+        example: 9
+    ContainerID:
+      in: path
+      name: id
+      required: true
+      description: 容器 ID，必須為正整數。
+      schema:
+        type: integer
+        minimum: 1
+        example: 21
+
   schemas:
-    AuthResponse:
+    HealthzResponse:
       type: object
+      required:
+        - status
       properties:
-        data:
-          type: object
-          properties:
-            userId:
-              type: integer
-            username:
-              type: string
-            token:
-              type: string
-            expiresAt:
-              type: string
-              format: date-time
-    FileResponse:
-      type: object
-      properties:
-        data:
-          $ref: '#/components/schemas/FileObject'
-    ContainerResponse:
-      type: object
-      properties:
-        data:
-          $ref: '#/components/schemas/Container'
-    Container:
-      type: object
-      properties:
-        id:
-          type: integer
-        userID:
-          type: integer
-        name:
-          type: string
-        image:
-          type: string
-        command:
-          type: array
-          items:
-            type: string
-        env:
-          type: object
-          additionalProperties:
-            type: string
-        runtimeID:
-          type: string
         status:
           type: string
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-    FileObject:
+          enum:
+            - ok
+
+    ErrorEnvelope:
       type: object
+      required:
+        - errno
+        - message
+        - data
+      properties:
+        errno:
+          type: integer
+          description: 業務錯誤碼，非 0 代表失敗。
+          example: 1000
+        message:
+          type: string
+          description: 錯誤訊息，可能包含下游錯誤內容（`->` 後方）。
+          example: "bind request error -> invalid character"
+        data:
+          nullable: true
+          description: 錯誤時固定為 null。
+          example: null
+
+    RegisterRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          description: 使用者名稱。系統會先做 trim。
+          example: alice
+        password:
+          type: string
+          description: 明文密碼。trim 後長度需至少 6。
+          example: "123456"
+
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          description: 使用者名稱。系統會先做 trim。
+          example: alice
+        password:
+          type: string
+          description: 明文密碼。trim 後長度需至少 6。
+          example: "123456"
+
+    UploadFileRequest:
+      type: object
+      required:
+        - file
+      properties:
+        file:
+          type: string
+          format: binary
+          description: multipart 上傳檔案欄位，欄位名必須是 `file`。
+
+    CreateContainerRequest:
+      type: object
+      required:
+        - image
+      properties:
+        name:
+          type: string
+          description: 容器名稱。空值時系統預設為 `default`。
+          example: csv-job
+        image:
+          type: string
+          description: 容器映像（必填，trim 後不可空）。
+          example: busybox:latest
+        command:
+          type: array
+          description: 容器指令陣列，`null` 會被轉為空陣列。
+          items:
+            type: string
+          example:
+            - sh
+            - -c
+            - ls -la /workspace
+        env:
+          type: object
+          description: 環境變數，`null` 會被轉為空物件。
+          additionalProperties:
+            type: string
+          example:
+            TZ: Asia/Taipei
+
+    UpdateContainerStatusRequest:
+      type: object
+      required:
+        - action
+      properties:
+        action:
+          type: string
+          description: |
+            容器狀態動作（不分大小寫）：
+            - 啟動：`start`、`running`
+            - 停止：`stop`、`stopped`
+          example: start
+
+    RegisterData:
+      type: object
+      required:
+        - user_id
+        - username
+      properties:
+        user_id:
+          type: integer
+          minimum: 1
+          description: 新建立使用者 ID。
+          example: 12
+        username:
+          type: string
+          description: 新建立使用者名稱。
+          example: alice
+
+    LoginData:
+      type: object
+      required:
+        - user_id
+        - username
+        - token
+        - expires_at
+      properties:
+        user_id:
+          type: integer
+          minimum: 1
+          description: 登入使用者 ID。
+          example: 12
+        username:
+          type: string
+          description: 登入使用者名稱。
+          example: alice
+        token:
+          type: string
+          description: JWT Token（HS256）。
+          example: <jwt-token>
+        expires_at:
+          type: string
+          format: date-time
+          description: Token 過期時間（RFC3339）。
+          example: "2026-03-12T09:30:00Z"
+
+    UploadFileData:
+      type: object
+      required:
+        - id
+        - user_id
+        - file_name
+        - object_key
+        - content_type
+        - size
+        - workspace_path
+        - created_at
       properties:
         id:
           type: integer
-        userID:
+          minimum: 1
+          description: 檔案 metadata ID。
+          example: 11
+        user_id:
           type: integer
-        fileName:
+          minimum: 1
+          description: 目標使用者 ID（來自路徑參數）。
+          example: 9
+        file_name:
           type: string
-        objectKey:
+          description: 檔名（經過 basename 正規化）。
+          example: report.csv
+        object_key:
           type: string
-        contentType:
+          description: object storage 內部 key。
+          example: users/9/af20ab21f00e9a128b2d31ee_report.csv
+        content_type:
           type: string
+          description: 檔案 MIME type，空值時預設 `application/octet-stream`。
+          example: text/csv
         size:
           type: integer
           format: int64
-        workspacePath:
+          minimum: 0
+          description: 檔案大小（bytes）。
+          example: 1024
+        workspace_path:
           type: string
-        createdAt:
+          description: 本地 workspace 保存路徑。
+          example: ./workspace/9/af20ab21f00e9a128b2d31ee_report.csv
+        created_at:
           type: string
           format: date-time
-    ErrorResponse:
+          description: 建立時間（RFC3339）。
+          example: "2026-03-12T09:30:00Z"
+
+    ContainerData:
       type: object
+      required:
+        - id
+        - user_id
+        - name
+        - image
+        - command
+        - env
+        - runtime_id
+        - status
+        - created_at
+        - updated_at
       properties:
-        error:
+        id:
+          type: integer
+          minimum: 1
+          description: 容器資料 ID。
+          example: 21
+        user_id:
+          type: integer
+          minimum: 1
+          description: 容器擁有者使用者 ID。
+          example: 9
+        name:
           type: string
+          description: 容器名稱。
+          example: csv-job
+        image:
+          type: string
+          description: 容器映像名稱。
+          example: busybox:latest
+        command:
+          type: array
+          description: 容器指令陣列。
+          items:
+            type: string
+          example:
+            - sh
+            - -c
+            - ls -la /workspace
+        env:
+          type: object
+          description: 環境變數物件。
+          additionalProperties:
+            type: string
+          example:
+            TZ: Asia/Taipei
+        runtime_id:
+          type: string
+          description: 容器 runtime ID（Docker container id）。
+          example: 4d17d7f9fc4ec8ea5d7ad2e6d6f3c4b2...
+        status:
+          type: string
+          description: 容器狀態。
+          enum:
+            - created
+            - running
+            - stopped
+          example: created
+        created_at:
+          type: string
+          format: date-time
+          description: 建立時間（RFC3339）。
+          example: "2026-03-12T09:30:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: 更新時間（RFC3339）。
+          example: "2026-03-12T10:01:00Z"
+
+    DeleteContainerData:
+      type: object
+      required:
+        - deleted
+      properties:
+        deleted:
+          type: boolean
+          description: 刪除流程是否完成。
+          example: true
+
+    RegisterResponseEnvelope:
+      type: object
+      required:
+        - errno
+        - message
+        - data
+      properties:
+        errno:
+          type: integer
+          description: '`0` 成功，非 `0` 代表業務錯誤。'
+          example: 0
+        message:
+          type: string
+          description: 結果訊息。
+          example: success
+        data:
+          nullable: true
+          oneOf:
+            - $ref: '#/components/schemas/RegisterData'
+
+    LoginResponseEnvelope:
+      type: object
+      required:
+        - errno
+        - message
+        - data
+      properties:
+        errno:
+          type: integer
+          description: '`0` 成功，非 `0` 代表業務錯誤。'
+          example: 0
+        message:
+          type: string
+          description: 結果訊息。
+          example: success
+        data:
+          nullable: true
+          oneOf:
+            - $ref: '#/components/schemas/LoginData'
+
+    UploadFileResponseEnvelope:
+      type: object
+      required:
+        - errno
+        - message
+        - data
+      properties:
+        errno:
+          type: integer
+          description: '`0` 成功，非 `0` 代表業務錯誤。'
+          example: 0
+        message:
+          type: string
+          description: 結果訊息。
+          example: success
+        data:
+          nullable: true
+          oneOf:
+            - $ref: '#/components/schemas/UploadFileData'
+
+    ContainerResponseEnvelope:
+      type: object
+      required:
+        - errno
+        - message
+        - data
+      properties:
+        errno:
+          type: integer
+          description: '`0` 成功，非 `0` 代表業務錯誤。'
+          example: 0
+        message:
+          type: string
+          description: 結果訊息。
+          example: success
+        data:
+          nullable: true
+          oneOf:
+            - $ref: '#/components/schemas/ContainerData'
+
+    ListContainersResponseEnvelope:
+      type: object
+      required:
+        - errno
+        - message
+        - data
+      properties:
+        errno:
+          type: integer
+          description: '`0` 成功，非 `0` 代表業務錯誤。'
+          example: 0
+        message:
+          type: string
+          description: 結果訊息。
+          example: success
+        data:
+          nullable: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ContainerData'
+
+    DeleteContainerResponseEnvelope:
+      type: object
+      required:
+        - errno
+        - message
+        - data
+      properties:
+        errno:
+          type: integer
+          description: '`0` 成功，非 `0` 代表業務錯誤。'
+          example: 0
+        message:
+          type: string
+          description: 結果訊息。
+          example: success
+        data:
+          nullable: true
+          oneOf:
+            - $ref: '#/components/schemas/DeleteContainerData'
