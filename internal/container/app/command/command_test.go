@@ -303,45 +303,6 @@ func TestUploadFileHandler(t *testing.T) {
 	assertErrno(t, err, consts.ErrnoFileSizeExceeded)
 }
 
-func TestCreateContainerHandler(t *testing.T) {
-	logger := logrus.New()
-	handler := NewCreateContainerHandler(
-		fakeContainerRepo{
-			createFn: func(_ context.Context, c *domaincontainer.Container) error {
-				c.ID = 1
-				return nil
-			},
-		},
-		fakeContainerRuntime{
-			createFn: func(_ context.Context, _ uint, spec domaincontainer.CreateSpec, workspacePath string) (string, error) {
-				if spec.Name != "default" {
-					t.Fatalf("expected default name, got %s", spec.Name)
-				}
-				if workspacePath == "" {
-					t.Fatalf("workspace path should not be empty")
-				}
-				return "rid", nil
-			},
-		},
-		fakeWorkspace{},
-		logger,
-	)
-
-	res, err := handler.Handle(context.Background(), CreateContainer{
-		UserID: 1,
-		Image:  "busybox:latest",
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if res.RuntimeID != "rid" || res.Status != string(domaincontainer.StatusCreated) {
-		t.Fatalf("unexpected result: %+v", res)
-	}
-
-	_, err = handler.Handle(context.Background(), CreateContainer{UserID: 1, Image: ""})
-	assertErrno(t, err, consts.ErrnoContainerImageRequired)
-}
-
 func TestUpdateContainerStatusHandler(t *testing.T) {
 	logger := logrus.New()
 	startCalled := 0

@@ -263,9 +263,9 @@ paths:
     post:
       tags:
         - Container
-      summary: 建立容器
+      summary: 提交建立容器任務
       description: |
-        建立容器 runtime，並儲存容器資料。
+        非同步提交「建立容器」任務，立即回傳 `job_id`，實際建立流程由背景 worker 執行。
 
         驗證機制：
         - 需帶 `Authorization: Bearer <JWT>`。
@@ -276,10 +276,9 @@ paths:
         - `name` 若空值，預設為 `default`。
         - `command` 若為 `null`，會轉為空陣列。
         - `env` 若為 `null`，會轉為空物件。
-        - 建立使用者 workspace 目錄。
-        - 拉取映像並建立 Docker 容器。
-        - 將 workspace 掛載到容器內 `/workspace`。
-        - 初始狀態為 `created`。
+        - 任務先以 `accepted` 寫入任務表，再送進內部佇列。
+        - 背景流程會更新狀態為 `creating`，完成後更新為 `succeeded` 或 `failed`。
+        - `succeeded` 時會附上 `container_id`；`failed` 時會附上 `error_message`（可從查詢 API 取得）。
 
         HTTP Status Code：
         - 成功與業務錯誤皆回傳 `200`。
@@ -289,8 +288,8 @@ paths:
         - `3003`：Token context 無 user id 或為 0。
         - `1000`：JSON 綁定失敗。
         - `7000`：image 為空。
-        - `7001`：workspace 準備失敗。
-        - `7002`：runtime 建立失敗（含 image pull / container create 失敗）。
+        - `7008`：建立任務佇列已滿。
+        - `7010`：建立任務服務不可用。
         - `5000`：資料庫錯誤。
       security:
         - BearerAuth: []
@@ -317,31 +316,23 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ContainerResponseEnvelope'
+                $ref: '#/components/schemas/CreateContainerJobAcceptedResponseEnvelope'
               examples:
                 success:
                   value:
                     errno: 0
                     message: success
                     data:
-                      id: 21
-                      user_id: 9
-                      name: csv-job
-                      image: busybox:latest
-                      command:
-                        - sh
-                        - -c
-                        - ls -la /workspace
-                      env:
-                        TZ: Asia/Taipei
-                      runtime_id: 4d17d7f9fc4ec8ea5d7ad2e6d6f3c4b2...
-                      status: created
-                      created_at: "2026-03-12T09:30:00Z"
-                      updated_at: "2026-03-12T09:30:00Z"
+                      job_id: 6ccf39e1-6f47-4f9e-b04d-59e7e8f0b0ad
                 image_required:
                   value:
                     errno: 7000
                     message: container image is required
+                    data: null
+                queue_full:
+                  value:
+                    errno: 7008
+                    message: container create job queue is full
                     data: null
     get:
       tags:
@@ -393,6 +384,75 @@ paths:
                   value:
                     errno: 3000
                     message: missing Authorization header
+                    data: null
+
+  /api/v1/containers/jobs/{job_id}:
+    get:
+      tags:
+        - Container
+      summary: 查詢建立容器任務狀態
+      description: |
+        依 `job_id` 查詢非同步建立容器任務的目前狀態。
+
+        驗證機制：
+        - 需帶 `Authorization: Bearer <JWT>`。
+
+        系統行為：
+        - 只可查詢屬於當前 JWT 使用者的任務。
+        - `job_id` 不可為空字串。
+        - 狀態值回傳英文：`accepted`、`creating`、`succeeded`、`failed`。
+        - `succeeded` 時可能帶 `container_id`。
+        - `failed` 時可能帶 `error_message`。
+
+        HTTP Status Code：
+        - 成功與業務錯誤皆回傳 `200`。
+
+        常見業務錯誤（`errno`）：
+        - Auth 中介層：`3000`、`3001`、`3004`、`3007`、`3008`、`3009`、`3010`、`3011`。
+        - `3003`：Token context 無 user id 或為 0。
+        - `1001`：job_id 無效（空字串）。
+        - `7009`：找不到對應任務，或該任務不屬於目前使用者。
+        - `7010`：建立任務服務不可用。
+        - `5000`：資料庫錯誤。
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ContainerCreateJobID'
+      responses:
+        '200':
+          description: 成功或業務錯誤（請看 `errno`）。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateContainerJobStatusResponseEnvelope'
+              examples:
+                accepted:
+                  value:
+                    errno: 0
+                    message: success
+                    data:
+                      job_id: 6ccf39e1-6f47-4f9e-b04d-59e7e8f0b0ad
+                      status: accepted
+                succeeded:
+                  value:
+                    errno: 0
+                    message: success
+                    data:
+                      job_id: 6ccf39e1-6f47-4f9e-b04d-59e7e8f0b0ad
+                      status: succeeded
+                      container_id: 21
+                failed:
+                  value:
+                    errno: 0
+                    message: success
+                    data:
+                      job_id: 6ccf39e1-6f47-4f9e-b04d-59e7e8f0b0ad
+                      status: failed
+                      error_message: "failed to create container runtime -> image pull failed"
+                not_found:
+                  value:
+                    errno: 7009
+                    message: container create job not found
                     data: null
 
   /api/v1/containers/{id}/status:
@@ -559,6 +619,15 @@ components:
         type: integer
         minimum: 1
         example: 21
+    ContainerCreateJobID:
+      in: path
+      name: job_id
+      required: true
+      description: 建立容器任務 ID（UUID 字串）。
+      schema:
+        type: string
+        minLength: 1
+        example: 6ccf39e1-6f47-4f9e-b04d-59e7e8f0b0ad
 
   schemas:
     HealthzResponse:
@@ -838,6 +907,45 @@ components:
           description: 更新時間（RFC3339）。
           example: "2026-03-12T10:01:00Z"
 
+    CreateContainerJobAcceptedData:
+      type: object
+      required:
+        - job_id
+      properties:
+        job_id:
+          type: string
+          description: 建立容器任務 ID（UUID）。
+          example: 6ccf39e1-6f47-4f9e-b04d-59e7e8f0b0ad
+
+    CreateContainerJobStatusData:
+      type: object
+      required:
+        - job_id
+        - status
+      properties:
+        job_id:
+          type: string
+          description: 建立容器任務 ID（UUID）。
+          example: 6ccf39e1-6f47-4f9e-b04d-59e7e8f0b0ad
+        status:
+          type: string
+          description: 任務狀態（英文）。
+          enum:
+            - accepted
+            - creating
+            - succeeded
+            - failed
+          example: creating
+        container_id:
+          type: integer
+          minimum: 1
+          description: 任務成功時對應建立出的容器 ID。
+          example: 21
+        error_message:
+          type: string
+          description: 任務失敗時的錯誤訊息。
+          example: "failed to create container runtime -> image pull failed"
+
     DeleteContainerData:
       type: object
       required:
@@ -907,6 +1015,46 @@ components:
           nullable: true
           oneOf:
             - $ref: '#/components/schemas/UploadFileData'
+
+    CreateContainerJobAcceptedResponseEnvelope:
+      type: object
+      required:
+        - errno
+        - message
+        - data
+      properties:
+        errno:
+          type: integer
+          description: '`0` 成功，非 `0` 代表業務錯誤。'
+          example: 0
+        message:
+          type: string
+          description: 結果訊息。
+          example: success
+        data:
+          nullable: true
+          oneOf:
+            - $ref: '#/components/schemas/CreateContainerJobAcceptedData'
+
+    CreateContainerJobStatusResponseEnvelope:
+      type: object
+      required:
+        - errno
+        - message
+        - data
+      properties:
+        errno:
+          type: integer
+          description: '`0` 成功，非 `0` 代表業務錯誤。'
+          example: 0
+        message:
+          type: string
+          description: 結果訊息。
+          example: success
+        data:
+          nullable: true
+          oneOf:
+            - $ref: '#/components/schemas/CreateContainerJobStatusData'
 
     ContainerResponseEnvelope:
       type: object

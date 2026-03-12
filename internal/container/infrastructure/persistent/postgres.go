@@ -48,7 +48,7 @@ func NewPostgres() *Postgres {
 		panic(err)
 	}
 
-	db.AutoMigrate(&UserModel{}, &FileModel{}, &ContainerModel{})
+	db.AutoMigrate(&UserModel{}, &FileModel{}, &ContainerModel{}, &ContainerCreateJobModel{})
 
 	return &Postgres{db: db}
 }

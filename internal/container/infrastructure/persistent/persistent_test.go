@@ -22,7 +22,7 @@ func newTestPostgres(t *testing.T) *Postgres {
 	if err != nil {
 		t.Fatalf("open sqlite failed: %v", err)
 	}
-	if err = db.AutoMigrate(&UserModel{}, &ContainerModel{}, &FileModel{}); err != nil {
+	if err = db.AutoMigrate(&UserModel{}, &ContainerModel{}, &FileModel{}, &ContainerCreateJobModel{}); err != nil {
 		t.Fatalf("auto migrate failed: %v", err)
 	}
 	return NewPostgresWithDB(db)
@@ -189,5 +189,53 @@ func TestPostgresCreateFile(t *testing.T) {
 	}
 	if count != 1 {
 		t.Fatalf("expected one created file, got %d", count)
+	}
+}
+
+func TestPostgresContainerCreateJobCRUD(t *testing.T) {
+	pg := newTestPostgres(t)
+	ctx := context.Background()
+
+	create := &ContainerCreateJobModel{
+		JobID:   "job-1",
+		UserID:  7,
+		Name:    "demo",
+		Image:   "busybox:latest",
+		Command: `["echo","ok"]`,
+		Env:     `{"A":"1"}`,
+		Status:  "accepted",
+	}
+	if err := pg.CreateContainerCreateJob(ctx, nil, create); err != nil {
+		t.Fatalf("CreateContainerCreateJob unexpected error: %v", err)
+	}
+	if create.ID == 0 || create.CreatedAt.IsZero() || create.UpdatedAt.IsZero() {
+		t.Fatalf("CreateContainerCreateJob should hydrate id/timestamps, got %+v", create)
+	}
+
+	got, err := pg.GetContainerCreateJobByJobIDAndUser(ctx, "job-1", 7)
+	if err != nil {
+		t.Fatalf("GetContainerCreateJobByJobIDAndUser unexpected error: %v", err)
+	}
+	if got.JobID != "job-1" || got.Status != "accepted" {
+		t.Fatalf("unexpected job payload: %+v", got)
+	}
+
+	create.Status = "succeeded"
+	create.ContainerID = 9
+	if err = pg.UpdateContainerCreateJob(ctx, nil, create); err != nil {
+		t.Fatalf("UpdateContainerCreateJob unexpected error: %v", err)
+	}
+
+	got, err = pg.GetContainerCreateJobByJobIDAndUser(ctx, "job-1", 7)
+	if err != nil {
+		t.Fatalf("GetContainerCreateJobByJobIDAndUser after update unexpected error: %v", err)
+	}
+	if got.Status != "succeeded" || got.ContainerID != 9 {
+		t.Fatalf("unexpected updated job payload: %+v", got)
+	}
+
+	_, err = pg.GetContainerCreateJobByJobIDAndUser(ctx, "job-missing", 7)
+	if commonerrors.Errno(err) != consts.ErrnoContainerCreateJobNotFound {
+		t.Fatalf("expected container create job not found errno, got err=%v", err)
 	}
 }

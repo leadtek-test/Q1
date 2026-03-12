@@ -168,7 +168,7 @@ func (H HTTPServer) Upload(c *gin.Context) {
 func (H HTTPServer) CreateContainer(c *gin.Context) {
 	var (
 		req  client.CreateContainerRequest
-		resp dto.ContainerResponse
+		resp dto.CreateContainerJobAcceptedResponse
 		err  error
 	)
 	defer func() {
@@ -186,7 +186,12 @@ func (H HTTPServer) CreateContainer(c *gin.Context) {
 		return
 	}
 
-	r, err := H.App.Commands.CreateContainer.Handle(c, command.CreateContainer{
+	if H.App.Commands.CreateContainerJob == nil {
+		err = errors.New(consts.ErrnoContainerCreateJobUnavailable)
+		return
+	}
+
+	r, err := H.App.Commands.CreateContainerJob.Handle(c, command.CreateContainerJob{
 		UserID:  userID,
 		Name:    req.Name,
 		Image:   req.Image,
@@ -197,17 +202,48 @@ func (H HTTPServer) CreateContainer(c *gin.Context) {
 		return
 	}
 
-	resp = dto.ContainerResponse{
-		ID:        r.ID,
-		UserID:    r.UserID,
-		Name:      r.Name,
-		Image:     r.Image,
-		Command:   r.Command,
-		Env:       r.Env,
-		RuntimeID: r.RuntimeID,
-		Status:    r.Status,
-		CreatedAt: r.CreatedAt,
-		UpdatedAt: r.UpdatedAt,
+	resp = dto.CreateContainerJobAcceptedResponse{JobID: r.JobID}
+}
+
+func (H HTTPServer) GetCreateContainerJob(c *gin.Context) {
+	var (
+		resp dto.CreateContainerJobStatusResponse
+		err  error
+	)
+	defer func() {
+		H.Response(c, err, &resp)
+	}()
+
+	userID := c.GetUint(contextx.KeyUserID)
+	if userID == 0 {
+		err = errors.New(consts.ErrnoAuthInvalidToken)
+		return
+	}
+
+	jobID := strings.TrimSpace(c.Param("job_id"))
+	if jobID == "" {
+		err = errors.NewWithMsgf(consts.ErrnoRequestValidateError, "invalid container create job id")
+		return
+	}
+
+	if H.App.Queries.GetCreateContainerJob == nil {
+		err = errors.New(consts.ErrnoContainerCreateJobUnavailable)
+		return
+	}
+
+	job, err := H.App.Queries.GetCreateContainerJob.Handle(c, appquery.GetCreateContainerJob{
+		UserID: userID,
+		JobID:  jobID,
+	})
+	if err != nil {
+		return
+	}
+
+	resp = dto.CreateContainerJobStatusResponse{
+		JobID:        job.JobID,
+		Status:       string(job.Status),
+		ContainerID:  job.ContainerID,
+		ErrorMessage: job.ErrorMessage,
 	}
 }
 

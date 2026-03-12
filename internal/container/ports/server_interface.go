@@ -19,9 +19,13 @@ type ServerInterface interface {
 	// 並在成功後回傳檔案已被保存或登記的結果。
 	Upload(c *gin.Context)
 
-	// CreateContainer 為當前用戶建立新的容器資源。
-	// 需負責驗證建立參數、確認資源歸屬與建立條件，並回傳新容器的建立結果。
+	// CreateContainer 為當前用戶提交建立容器任務。
+	// 需負責驗證建立參數、確認資源歸屬與建立條件，並回傳可追蹤任務狀態的 job id。
 	CreateContainer(c *gin.Context)
+
+	// GetCreateContainerJob 查詢建立容器任務狀態。
+	// 需負責確認任務屬於當前用戶，並回傳任務目前狀態資訊。
+	GetCreateContainerJob(c *gin.Context)
 
 	// ListContainers 查詢當前用戶所擁有的所有容器。
 	// 需負責識別用戶身份，並回傳該用戶可查看的容器清單與必要狀態資訊。

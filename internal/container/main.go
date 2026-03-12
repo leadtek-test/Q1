@@ -22,8 +22,11 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	application, cleanup := service.NewApplication(ctx)
+	application, createContainerJobListener, cleanup := service.NewApplication(ctx)
 	defer cleanup()
+	if createContainerJobListener != nil {
+		go createContainerJobListener.Listen(ctx)
+	}
 
 	server.RunHTTPServerOnAddr(viper.GetString("server-addr"), func(router *gin.Engine) {
 		ports.RegisterHandlersWithOption(router, ports.HTTPServer{

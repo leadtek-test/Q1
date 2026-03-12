@@ -50,6 +50,9 @@ const (
 	ErrnoContainerRuntimeStartFail     = 7005
 	ErrnoContainerRuntimeStopFail      = 7006
 	ErrnoContainerRuntimeDeleteFail    = 7007
+	ErrnoContainerCreateJobQueueFull   = 7008
+	ErrnoContainerCreateJobNotFound    = 7009
+	ErrnoContainerCreateJobUnavailable = 7010
 
 	// database error 5xxx
 	ErrnoDatabaseError = 5000
@@ -98,6 +101,9 @@ var ErrMsg = map[int]string{
 	ErrnoContainerRuntimeStartFail:     "failed to start container runtime",
 	ErrnoContainerRuntimeStopFail:      "failed to stop container runtime",
 	ErrnoContainerRuntimeDeleteFail:    "failed to delete container runtime",
+	ErrnoContainerCreateJobQueueFull:   "container create job queue is full",
+	ErrnoContainerCreateJobNotFound:    "container create job not found",
+	ErrnoContainerCreateJobUnavailable: "container create job service unavailable",
 
 	ErrnoDatabaseError: "database error",
 }

@@ -18,3 +18,14 @@ type ContainerResponse struct {
 type DeleteContainerResponse struct {
 	Deleted bool `json:"deleted"`
 }
+
+type CreateContainerJobAcceptedResponse struct {
+	JobID string `json:"job_id"`
+}
+
+type CreateContainerJobStatusResponse struct {
+	JobID        string `json:"job_id"`
+	Status       string `json:"status"`
+	ContainerID  uint   `json:"container_id,omitempty"`
+	ErrorMessage string `json:"error_message,omitempty"`
+}

@@ -14,11 +14,12 @@ type Commands struct {
 	CreateUser            command.CreateUserHandler
 	LoginUser             command.LoginUserHandler
 	UploadFile            command.UploadFileHandler
-	CreateContainer       command.CreateContainerHandler
+	CreateContainerJob    command.CreateContainerJobHandler
 	UpdateContainerStatus command.UpdateContainerStatusHandler
 	DeleteContainer       command.DeleteContainerHandler
 }
 
 type Queries struct {
-	ListContainers query.ListContainersHandler
+	ListContainers        query.ListContainersHandler
+	GetCreateContainerJob query.GetCreateContainerJobHandler
 }

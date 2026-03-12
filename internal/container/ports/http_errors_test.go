@@ -103,11 +103,6 @@ func TestHTTPServerContainerErrorBranches(t *testing.T) {
 	server := HTTPServer{
 		App: app.Application{
 			Commands: app.Commands{
-				CreateContainer: fakeCreateContainerHandler{
-					fn: func(context.Context, command.CreateContainer) (*command.CreateContainerResult, error) {
-						return &command.CreateContainerResult{}, nil
-					},
-				},
 				UpdateContainerStatus: fakeUpdateContainerStatusHandler{
 					fn: func(context.Context, command.UpdateContainerStatus) (*command.UpdateContainerStatusResult, error) {
 						return &command.UpdateContainerStatusResult{}, nil

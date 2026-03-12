@@ -15,6 +15,7 @@ func TestNewListContainersHandlerPanics(t *testing.T) {
 
 	assertPanic(t, func() { NewListContainersHandler(nil, fakeRuntime{}, logger) })
 	assertPanic(t, func() { NewListContainersHandler(fakeContainerRepo{}, nil, logger) })
+	assertPanic(t, func() { NewGetCreateContainerJobHandler(nil, logger) })
 }
 
 func TestListContainersHandlerRepoError(t *testing.T) {

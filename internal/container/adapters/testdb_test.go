@@ -18,7 +18,7 @@ func newAdaptersTestPostgres(t *testing.T) *persistent.Postgres {
 	if err != nil {
 		t.Fatalf("open sqlite failed: %v", err)
 	}
-	if err = db.AutoMigrate(&persistent.UserModel{}, &persistent.FileModel{}, &persistent.ContainerModel{}); err != nil {
+	if err = db.AutoMigrate(&persistent.UserModel{}, &persistent.FileModel{}, &persistent.ContainerModel{}, &persistent.ContainerCreateJobModel{}); err != nil {
 		t.Fatalf("auto migrate failed: %v", err)
 	}
 	return persistent.NewPostgresWithDB(db)

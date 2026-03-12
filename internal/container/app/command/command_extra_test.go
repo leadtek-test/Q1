@@ -28,9 +28,7 @@ func TestNewHandlersPanicsOnNilDependency(t *testing.T) {
 	assertPanic(t, func() { NewUploadFileHandler(fakeFileRepo{}, fakeObjectStorage{}, nil, 1, logger) })
 	assertPanic(t, func() { NewUploadFileHandler(fakeFileRepo{}, fakeObjectStorage{}, fakeWorkspace{}, 0, logger) })
 
-	assertPanic(t, func() { NewCreateContainerHandler(nil, fakeContainerRuntime{}, fakeWorkspace{}, logger) })
-	assertPanic(t, func() { NewCreateContainerHandler(fakeContainerRepo{}, nil, fakeWorkspace{}, logger) })
-	assertPanic(t, func() { NewCreateContainerHandler(fakeContainerRepo{}, fakeContainerRuntime{}, nil, logger) })
+	assertPanic(t, func() { NewCreateContainerJobHandler(nil, logger) })
 
 	assertPanic(t, func() { NewUpdateContainerStatusHandler(nil, fakeContainerRuntime{}, logger) })
 	assertPanic(t, func() { NewUpdateContainerStatusHandler(fakeContainerRepo{}, nil, logger) })
@@ -200,50 +198,6 @@ func TestUploadFileHandlerErrorBranches(t *testing.T) {
 	assertErrno(t, err, consts.ErrnoAuthInvalidToken)
 	_, err = handler.Handle(context.Background(), UploadFile{UserID: 1, FileName: "", Payload: []byte("x")})
 	assertErrno(t, err, consts.ErrnoFileNameRequired)
-}
-
-func TestCreateContainerHandlerErrorBranches(t *testing.T) {
-	logger := logrus.New()
-
-	handler := NewCreateContainerHandler(
-		fakeContainerRepo{},
-		fakeContainerRuntime{},
-		fakeWorkspace{
-			ensureFn: func(uint) (string, error) { return "", stderrors.New("ensure fail") },
-		},
-		logger,
-	)
-	_, err := handler.Handle(context.Background(), CreateContainer{UserID: 1, Image: "img"})
-	assertErrno(t, err, consts.ErrnoContainerWorkspacePrepareFail)
-
-	handler = NewCreateContainerHandler(
-		fakeContainerRepo{},
-		fakeContainerRuntime{
-			createFn: func(context.Context, uint, domaincontainer.CreateSpec, string) (string, error) {
-				return "", stderrors.New("runtime create fail")
-			},
-		},
-		fakeWorkspace{},
-		logger,
-	)
-	_, err = handler.Handle(context.Background(), CreateContainer{UserID: 1, Image: "img"})
-	assertErrno(t, err, consts.ErrnoContainerRuntimeCreateFail)
-
-	handler = NewCreateContainerHandler(
-		fakeContainerRepo{
-			createFn: func(context.Context, *domaincontainer.Container) error {
-				return commonerrors.New(consts.ErrnoDatabaseError)
-			},
-		},
-		fakeContainerRuntime{},
-		fakeWorkspace{},
-		logger,
-	)
-	_, err = handler.Handle(context.Background(), CreateContainer{UserID: 1, Image: "img"})
-	assertErrno(t, err, consts.ErrnoDatabaseError)
-
-	_, err = handler.Handle(context.Background(), CreateContainer{UserID: 0, Image: "img"})
-	assertErrno(t, err, consts.ErrnoAuthInvalidToken)
 }
 
 func TestUpdateContainerStatusHandlerAdditionalBranches(t *testing.T) {

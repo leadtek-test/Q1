@@ -48,14 +48,6 @@ func (f fakeUploadFileHandler) Handle(ctx context.Context, cmd command.UploadFil
 	return f.fn(ctx, cmd)
 }
 
-type fakeCreateContainerHandler struct {
-	fn func(context.Context, command.CreateContainer) (*command.CreateContainerResult, error)
-}
-
-func (f fakeCreateContainerHandler) Handle(ctx context.Context, cmd command.CreateContainer) (*command.CreateContainerResult, error) {
-	return f.fn(ctx, cmd)
-}
-
 type fakeUpdateContainerStatusHandler struct {
 	fn func(context.Context, command.UpdateContainerStatus) (*command.UpdateContainerStatusResult, error)
 }
@@ -77,6 +69,22 @@ type fakeListContainersHandler struct {
 }
 
 func (f fakeListContainersHandler) Handle(ctx context.Context, query appquery.ListContainers) (*appquery.ListContainersResult, error) {
+	return f.fn(ctx, query)
+}
+
+type fakeCreateContainerJobHandler struct {
+	fn func(context.Context, command.CreateContainerJob) (*command.CreateContainerJobResult, error)
+}
+
+func (f fakeCreateContainerJobHandler) Handle(ctx context.Context, cmd command.CreateContainerJob) (*command.CreateContainerJobResult, error) {
+	return f.fn(ctx, cmd)
+}
+
+type fakeGetCreateContainerJobHandler struct {
+	fn func(context.Context, appquery.GetCreateContainerJob) (*appquery.GetCreateContainerJobResult, error)
+}
+
+func (f fakeGetCreateContainerJobHandler) Handle(ctx context.Context, query appquery.GetCreateContainerJob) (*appquery.GetCreateContainerJobResult, error) {
 	return f.fn(ctx, query)
 }
 
@@ -166,17 +174,12 @@ func TestHTTPServerContainerEndpoints(t *testing.T) {
 	server := HTTPServer{
 		App: app.Application{
 			Commands: app.Commands{
-				CreateContainer: fakeCreateContainerHandler{
-					fn: func(_ context.Context, cmd command.CreateContainer) (*command.CreateContainerResult, error) {
-						return &command.CreateContainerResult{
-							ID:        1,
-							UserID:    cmd.UserID,
-							Name:      cmd.Name,
-							Image:     cmd.Image,
-							Status:    "created",
-							CreatedAt: time.Unix(1, 0),
-							UpdatedAt: time.Unix(2, 0),
-						}, nil
+				CreateContainerJob: fakeCreateContainerJobHandler{
+					fn: func(_ context.Context, input command.CreateContainerJob) (*command.CreateContainerJobResult, error) {
+						if input.UserID != 3 {
+							t.Fatalf("unexpected user id: %d", input.UserID)
+						}
+						return &command.CreateContainerJobResult{JobID: "job-1"}, nil
 					},
 				},
 				UpdateContainerStatus: fakeUpdateContainerStatusHandler{
@@ -204,6 +207,15 @@ func TestHTTPServerContainerEndpoints(t *testing.T) {
 						return &appquery.ListContainersResult{Containers: []appquery.ContainerItem{{ID: 1}}}, nil
 					},
 				},
+				GetCreateContainerJob: fakeGetCreateContainerJobHandler{
+					fn: func(_ context.Context, query appquery.GetCreateContainerJob) (*appquery.GetCreateContainerJobResult, error) {
+						return &appquery.GetCreateContainerJobResult{
+							JobID:       query.JobID,
+							Status:      "succeeded",
+							ContainerID: 1,
+						}, nil
+					},
+				},
 			},
 		},
 	}
@@ -212,6 +224,13 @@ func TestHTTPServerContainerEndpoints(t *testing.T) {
 	ctx, w := newJSONContext(http.MethodPost, "/containers", `{"name":"n","image":"img"}`)
 	ctx.Set(contextx.KeyUserID, uint(3))
 	server.CreateContainer(ctx)
+	assertErrno(t, w, consts.ErrnoSuccess)
+
+	// get create job
+	ctx, w = newJSONContext(http.MethodGet, "/containers/jobs/job-1", ``)
+	ctx.Set(contextx.KeyUserID, uint(3))
+	ctx.Params = gin.Params{{Key: "job_id", Value: "job-1"}}
+	server.GetCreateContainerJob(ctx)
 	assertErrno(t, w, consts.ErrnoSuccess)
 
 	// list

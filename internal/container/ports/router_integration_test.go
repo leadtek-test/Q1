@@ -17,6 +17,7 @@ func (f fakeServer) Register(c *gin.Context)              { c.JSON(http.StatusOK
 func (f fakeServer) Login(c *gin.Context)                 { c.JSON(http.StatusOK, gin.H{"ok": true}) }
 func (f fakeServer) Upload(c *gin.Context)                { c.JSON(http.StatusOK, gin.H{"ok": true}) }
 func (f fakeServer) CreateContainer(c *gin.Context)       { c.JSON(http.StatusOK, gin.H{"ok": true}) }
+func (f fakeServer) GetCreateContainerJob(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"ok": true}) }
 func (f fakeServer) ListContainers(c *gin.Context)        { c.JSON(http.StatusOK, gin.H{"ok": true}) }
 func (f fakeServer) UpdateContainerStatus(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"ok": true}) }
 func (f fakeServer) DeleteContainer(c *gin.Context)       { c.JSON(http.StatusOK, gin.H{"ok": true}) }

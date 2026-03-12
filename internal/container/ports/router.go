@@ -42,6 +42,7 @@ func RegisterHandlersWithOption(router gin.IRouter, handlers ServerInterface, op
 			protected.POST("/user/:id/files", handlers.Upload)
 
 			protected.POST("/containers", handlers.CreateContainer)
+			protected.GET("/containers/jobs/:job_id", handlers.GetCreateContainerJob)
 			protected.GET("/containers", handlers.ListContainers)
 			protected.PUT("/containers/:id/status", handlers.UpdateContainerStatus)
 			protected.DELETE("/containers/:id", handlers.DeleteContainer)
