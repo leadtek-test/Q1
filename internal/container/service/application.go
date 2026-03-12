@@ -25,10 +25,12 @@ func newApplication(_ context.Context) app.Application {
 		viper.GetString("security.jwt-secret"),
 		viper.GetDuration("security.jwt-expire-time"),
 	)
+	logger := logrus.StandardLogger()
 	hasher := adapters.NewHasherRepositoryMD5()
 	return app.Application{
 		Commands: app.Commands{
-			CreateUser: command.NewCreateUserHandler(userRepoPostgres, hasher, tokenManager, logrus.StandardLogger()),
+			CreateUser: command.NewCreateUserHandler(userRepoPostgres, hasher, logger),
+			LoginUser:  command.NewLoginUserHandler(userRepoPostgres, hasher, tokenManager, logger),
 		},
 		Queries: app.Queries{},
 	}

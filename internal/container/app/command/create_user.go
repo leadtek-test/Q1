@@ -27,25 +27,20 @@ type CreateUserHandler decorator.CommandHandler[CreateUser, *CreateUserResult]
 type createUserHandler struct {
 	userRepo user.Repository
 	hasher   auth.PasswordHasher
-	token    auth.TokenManager
 }
 
-func NewCreateUserHandler(userRepo user.Repository, hasher auth.PasswordHasher, token auth.TokenManager, logger *logrus.Logger) CreateUserHandler {
+func NewCreateUserHandler(userRepo user.Repository, hasher auth.PasswordHasher, logger *logrus.Logger) CreateUserHandler {
 	if userRepo == nil {
 		panic("create user's user repository is nil")
 	}
 	if hasher == nil {
 		panic("create user's user hasher is nil")
 	}
-	if token == nil {
-		panic("create user's user token is nil")
-	}
 
 	return decorator.ApplyCommandDecorators(
 		createUserHandler{
 			userRepo: userRepo,
 			hasher:   hasher,
-			token:    token,
 		},
 		logger,
 	)

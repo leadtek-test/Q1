@@ -46,8 +46,34 @@ func (H HTTPServer) Register(c *gin.Context) {
 }
 
 func (H HTTPServer) Login(c *gin.Context) {
-	//TODO implement me
-	panic("implement me")
+	var (
+		req  client.RegisterRequest
+		resp dto.LoginUserResponse
+		err  error
+	)
+	defer func() {
+		H.Response(c, err, &resp)
+	}()
+
+	if err = c.ShouldBindJSON(&req); err != nil {
+		err = errors.NewWithError(consts.ErrnoBindRequestError, err)
+		return
+	}
+
+	r, err := H.App.Commands.LoginUser.Handle(c, command.LoginUser{
+		Username: req.Username,
+		Password: req.Password,
+	})
+	if err != nil {
+		return
+	}
+
+	resp = dto.LoginUserResponse{
+		UserID:    r.UserID,
+		Username:  r.Username,
+		Token:     r.Token,
+		ExpiresAt: r.ExpiresAt,
+	}
 }
 
 func (H HTTPServer) Upload(c *gin.Context) {
