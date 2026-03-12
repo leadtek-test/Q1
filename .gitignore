@@ -38,3 +38,5 @@ go.work.sum
 
 # Log file
 *.log
+
+.DS_Store

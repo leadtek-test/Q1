@@ -86,11 +86,7 @@ func (l loginUserHandler) validate(ctx context.Context, cmd LoginUser) (*LoginUs
 	}
 
 	u, err := l.userRepo.GetByUsername(ctx, username)
-	if err == nil {
-		return nil, errors.New(consts.ErrnoUserAlreadyExists)
-	}
-
-	if errors.Errno(err) != consts.ErrnoUserNotFound {
+	if err != nil {
 		return nil, err
 	}
 
