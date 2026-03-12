@@ -32,6 +32,15 @@ const (
 	ErrnoUserNotFound         = 4004
 	ErrnoUserPasswordNotMatch = 4005
 
+	// file error 6xxx
+	ErrnoFileRequired          = 6000
+	ErrnoFileNameRequired      = 6001
+	ErrnoFileOpenFailed        = 6002
+	ErrnoFileReadFailed        = 6003
+	ErrnoFileSizeExceeded      = 6004
+	ErrnoFileUploadFailed      = 6005
+	ErrnoFileWorkspaceSaveFail = 6006
+
 	// database error 5xxx
 	ErrnoDatabaseError = 5000
 )
@@ -62,6 +71,14 @@ var ErrMsg = map[int]string{
 	ErrnoUserAlreadyExists:    "username already exists",
 	ErrnoUserNotFound:         "user not found",
 	ErrnoUserPasswordNotMatch: "password not match",
+
+	ErrnoFileRequired:          "file is required",
+	ErrnoFileNameRequired:      "file name is required",
+	ErrnoFileOpenFailed:        "failed to open file",
+	ErrnoFileReadFailed:        "failed to read file",
+	ErrnoFileSizeExceeded:      "file size exceeds 20MB limit",
+	ErrnoFileUploadFailed:      "failed to upload file",
+	ErrnoFileWorkspaceSaveFail: "failed to save file in workspace",
 
 	ErrnoDatabaseError: "database error",
 }

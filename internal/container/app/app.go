@@ -10,6 +10,7 @@ type Application struct {
 type Commands struct {
 	CreateUser command.CreateUserHandler
 	LoginUser  command.LoginUserHandler
+	UploadFile command.UploadFileHandler
 }
 
 type Queries struct{}

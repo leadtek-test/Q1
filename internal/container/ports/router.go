@@ -39,7 +39,7 @@ func RegisterHandlersWithOption(router gin.IRouter, handlers ServerInterface, op
 		protected := v1Group.Group("")
 		useMiddlewares(protected, options.ProtectedMiddlewares)
 		{
-			protected.POST("/files", handlers.Upload)
+			protected.POST("/user/:id/files", handlers.Upload)
 
 			protected.POST("/containers", handlers.CreateContainer)
 			protected.GET("/containers", handlers.ListContainers)

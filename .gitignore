@@ -21,6 +21,7 @@ profile.cov
 .ai/
 internal/container/log
 internal/container/tmp
+ref
 
 # Go workspace file
 go.work
