@@ -65,9 +65,7 @@ Service Composition (service/application.go) 負責組裝依賴
 │       │   └── dto/                # API response DTO
 │       ├── domain/                 # 核心領域模型 + 介面（repository/runtime/token）
 │       ├── adapters/               # domain 介面實作（postgres/docker/local/jwt/channel）
-│       ├── infrastructure/         # DB persistence model 與查詢 builder
-│       ├── log/                    # 本地 log 輸出
-│       └── tmp/                    # 開發期暫存
+│       └── infrastructure/         # DB persistence model 與查詢 builder
 ├── docker-compose.yml              # 本地相依服務（Postgres/MinIO）
 ├── go.work                         # 多模組 workspace
 └── workspace_test.go               # workspace 驗證測試
