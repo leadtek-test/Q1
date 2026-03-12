@@ -114,18 +114,18 @@ func TestPostgresContainerCRUD(t *testing.T) {
 		t.Fatalf("CreateContainer should hydrate id/timestamps, got %+v", create)
 	}
 
-	items, err := pg.BatchGetContainerByUser(ctx, 10)
+	items, err := pg.BatchGetContainer(ctx, builder.NewContainer().UserIDs(10).Order("id DESC"))
 	if err != nil {
-		t.Fatalf("BatchGetContainerByUser unexpected error: %v", err)
+		t.Fatalf("BatchGetContainer unexpected error: %v", err)
 	}
 	if len(items) != 1 || items[0].ID == 0 {
 		t.Fatalf("unexpected container list: %+v", items)
 	}
 	create.ID = items[0].ID
 
-	got, err := pg.GetContainerByIDAndUser(ctx, create.ID, 10)
+	got, err := pg.GetContainer(ctx, builder.NewContainer().IDs(create.ID).UserIDs(10))
 	if err != nil {
-		t.Fatalf("GetContainerByIDAndUser unexpected error: %v", err)
+		t.Fatalf("GetContainer unexpected error: %v", err)
 	}
 	if got.RuntimeID != "runtime-id" {
 		t.Fatalf("unexpected runtime id: %+v", got)
@@ -137,9 +137,9 @@ func TestPostgresContainerCRUD(t *testing.T) {
 		t.Fatalf("UpdateContainer unexpected error: %v", err)
 	}
 
-	got, err = pg.GetContainerByIDAndUser(ctx, create.ID, 10)
+	got, err = pg.GetContainer(ctx, builder.NewContainer().IDs(create.ID).UserIDs(10))
 	if err != nil {
-		t.Fatalf("GetContainerByIDAndUser after update unexpected error: %v", err)
+		t.Fatalf("GetContainer after update unexpected error: %v", err)
 	}
 	if got.Status != "running" || got.Name != "demo-2" {
 		t.Fatalf("unexpected updated container: %+v", got)
@@ -159,7 +159,7 @@ func TestPostgresContainerCRUD(t *testing.T) {
 		t.Fatalf("expected container not found on delete, got err=%v", err)
 	}
 
-	_, err = pg.GetContainerByIDAndUser(ctx, create.ID, 10)
+	_, err = pg.GetContainer(ctx, builder.NewContainer().IDs(create.ID).UserIDs(10))
 	if commonerrors.Errno(err) != consts.ErrnoContainerNotFound {
 		t.Fatalf("expected container not found on get, got err=%v", err)
 	}

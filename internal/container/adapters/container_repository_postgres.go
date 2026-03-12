@@ -8,6 +8,7 @@ import (
 	"github.com/leadtek-test/q1/common/handler/errors"
 	"github.com/leadtek-test/q1/container/domain/container"
 	"github.com/leadtek-test/q1/container/infrastructure/persistent"
+	"github.com/leadtek-test/q1/container/infrastructure/persistent/builder"
 )
 
 type ContainerRepositoryPostgres struct {
@@ -49,7 +50,7 @@ func (c ContainerRepositoryPostgres) Create(ctx context.Context, data *container
 }
 
 func (c ContainerRepositoryPostgres) GetByIDAndUser(ctx context.Context, id, userID uint) (container.Container, error) {
-	model, err := c.db.GetContainerByIDAndUser(ctx, id, userID)
+	model, err := c.db.GetContainer(ctx, builder.NewContainer().IDs(id).UserIDs(userID))
 	if err != nil {
 		return container.Container{}, err
 	}
@@ -85,7 +86,7 @@ func (c ContainerRepositoryPostgres) Delete(ctx context.Context, id, userID uint
 }
 
 func (c ContainerRepositoryPostgres) ListByUser(ctx context.Context, userID uint) ([]container.Container, error) {
-	models, err := c.db.BatchGetContainerByUser(ctx, userID)
+	models, err := c.db.BatchGetContainer(ctx, builder.NewContainer().UserIDs(userID).Order("id DESC"))
 	if err != nil {
 		return nil, err
 	}

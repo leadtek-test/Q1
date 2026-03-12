@@ -7,6 +7,7 @@ import (
 	"github.com/leadtek-test/q1/common/consts"
 	errors2 "github.com/leadtek-test/q1/common/handler/errors"
 	"github.com/leadtek-test/q1/common/logging"
+	"github.com/leadtek-test/q1/container/infrastructure/persistent/builder"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -33,34 +34,34 @@ func (d Postgres) CreateContainer(ctx context.Context, tx *gorm.DB, create *Cont
 	return nil
 }
 
-func (d Postgres) BatchGetContainerByUser(ctx context.Context, userID uint) (results []ContainerModel, err error) {
-	_, deferLog := logging.WhenPostgres(ctx, "BatchGetContainerByUser", userID)
-	defer deferLog(results, &err)
-
-	err = d.db.WithContext(ctx).Where("user_id = ?", userID).Order("id DESC").Find(&results).Error
-	if err != nil {
-		return nil, errors2.NewWithError(consts.ErrnoDatabaseError, err)
-	}
-	return results, nil
-}
-
-func (d Postgres) GetContainerByIDAndUser(ctx context.Context, id, userID uint) (result *ContainerModel, err error) {
-	_, deferLog := logging.WhenPostgres(ctx, "GetContainerByIDAndUser", id, userID)
+func (d Postgres) GetContainer(ctx context.Context, query *builder.Container) (result *ContainerModel, err error) {
+	_, deferLog := logging.WhenPostgres(ctx, "GetContainer", query)
 	defer deferLog(result, &err)
 
-	var data ContainerModel
-	err = d.db.WithContext(ctx).Where("id = ? AND user_id = ?", id, userID).First(&data).Error
+	err = query.Fill(d.db.WithContext(ctx)).First(&result).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors2.New(consts.ErrnoContainerNotFound)
 		}
 		return nil, errors2.NewWithError(consts.ErrnoDatabaseError, err)
 	}
-	return &data, nil
+	return result, nil
+}
+
+func (d Postgres) BatchGetContainer(ctx context.Context, query *builder.Container) (results []ContainerModel, err error) {
+	_, deferLog := logging.WhenPostgres(ctx, "BatchGetContainer", query)
+	defer deferLog(results, &err)
+
+	err = query.Fill(d.db.WithContext(ctx)).Find(&results).Error
+	if err != nil {
+		return nil, errors2.NewWithError(consts.ErrnoDatabaseError, err)
+	}
+	return results, nil
 }
 
 func (d Postgres) UpdateContainer(ctx context.Context, tx *gorm.DB, update *ContainerModel) (err error) {
-	_, deferLog := logging.WhenPostgres(ctx, "UpdateContainer", update)
+	where := builder.NewContainer().IDs(update.ID).UserIDs(update.UserID)
+	_, deferLog := logging.WhenPostgres(ctx, "UpdateContainer", where, update)
 	defer deferLog(update, &err)
 
 	payload := map[string]any{
@@ -71,9 +72,7 @@ func (d Postgres) UpdateContainer(ctx context.Context, tx *gorm.DB, update *Cont
 		"runtime_id": update.RuntimeID,
 		"status":     update.Status,
 	}
-	result := d.UseTransaction(tx).WithContext(ctx).Model(&ContainerModel{}).
-		Where("id = ? AND user_id = ?", update.ID, update.UserID).
-		Updates(payload)
+	result := where.Fill(d.UseTransaction(tx).WithContext(ctx).Model(&ContainerModel{})).Updates(payload)
 	if result.Error != nil {
 		return errors2.NewWithError(consts.ErrnoDatabaseError, result.Error)
 	}
@@ -84,10 +83,11 @@ func (d Postgres) UpdateContainer(ctx context.Context, tx *gorm.DB, update *Cont
 }
 
 func (d Postgres) DeleteContainer(ctx context.Context, tx *gorm.DB, id, userID uint) (err error) {
-	_, deferLog := logging.WhenPostgres(ctx, "DeleteContainer", id, userID)
+	where := builder.NewContainer().IDs(id).UserIDs(userID)
+	_, deferLog := logging.WhenPostgres(ctx, "DeleteContainer", where)
 	defer deferLog(nil, &err)
 
-	result := d.UseTransaction(tx).WithContext(ctx).Where("id = ? AND user_id = ?", id, userID).Delete(&ContainerModel{})
+	result := where.Fill(d.UseTransaction(tx).WithContext(ctx)).Delete(&ContainerModel{})
 	if result.Error != nil {
 		return errors2.NewWithError(consts.ErrnoDatabaseError, result.Error)
 	}
