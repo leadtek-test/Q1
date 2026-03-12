@@ -7,6 +7,7 @@ import (
 	"github.com/leadtek-test/q1/common/consts"
 	"github.com/leadtek-test/q1/common/handler/errors"
 	"github.com/leadtek-test/q1/container/app"
+	"github.com/leadtek-test/q1/container/app/command"
 	"github.com/leadtek-test/q1/container/app/dto"
 )
 
@@ -30,7 +31,10 @@ func (H HTTPServer) Register(c *gin.Context) {
 		return
 	}
 
-	r, err := H.App.Commands.CreateUser.Handle(c, req)
+	r, err := H.App.Commands.CreateUser.Handle(c, command.CreateUser{
+		Username: req.Username,
+		Password: req.Password,
+	})
 	if err != nil {
 		return
 	}
