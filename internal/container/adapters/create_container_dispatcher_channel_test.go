@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -230,5 +231,67 @@ func TestCreateContainerDispatcherChannelQueueFull(t *testing.T) {
 	_, err = dispatcher.DispatchCreateContainer(context.Background(), domainjob.CreateContainerTask{UserID: 1, Image: "img"})
 	if commonerrors.Errno(err) != consts.ErrnoContainerCreateJobQueueFull {
 		t.Fatalf("expected queue full errno, got err=%v", err)
+	}
+}
+
+func TestCreateContainerDispatcherChannelDrainOnShutdown(t *testing.T) {
+	repo := &fakeJobRepo{jobs: map[string]domainjob.CreateContainerJob{}}
+	var nextID atomic.Uint32
+
+	dispatcher := NewCreateContainerDispatcherChannel(
+		repo,
+		fakeContainerRepoForDispatcher{
+			createFn: func(_ context.Context, c *domaincontainer.Container) error {
+				c.ID = uint(nextID.Add(1))
+				return nil
+			},
+		},
+		fakeContainerRuntimeForDispatcher{
+			createFn: func(context.Context, uint, domaincontainer.CreateSpec, string) (string, error) {
+				time.Sleep(80 * time.Millisecond)
+				return "runtime-id", nil
+			},
+		},
+		fakeWorkspaceForDispatcher{},
+		8,
+		logrus.New(),
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		dispatcher.Listen(ctx)
+	}()
+
+	jobIDs := make([]string, 0, 3)
+	for i := 0; i < 3; i++ {
+		jobID, err := dispatcher.DispatchCreateContainer(context.Background(), domainjob.CreateContainerTask{
+			UserID: 1,
+			Name:   "demo",
+			Image:  "busybox:latest",
+		})
+		if err != nil {
+			t.Fatalf("DispatchCreateContainer unexpected error: %v", err)
+		}
+		jobIDs = append(jobIDs, jobID)
+	}
+
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("dispatcher listen did not exit after draining jobs")
+	}
+
+	for _, jobID := range jobIDs {
+		job, err := repo.GetByJobIDAndUser(context.Background(), jobID, 1)
+		if err != nil {
+			t.Fatalf("GetByJobIDAndUser unexpected error: %v", err)
+		}
+		if job.Status != domainjob.CreateContainerJobStatusSucceeded {
+			t.Fatalf("expected job=%s succeeded, got status=%s", jobID, job.Status)
+		}
 	}
 }

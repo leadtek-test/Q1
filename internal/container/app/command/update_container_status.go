@@ -85,7 +85,7 @@ func (h updateContainerStatusHandler) Handle(ctx context.Context, cmd UpdateCont
 	unlock, waited, err := h.locker.Lock(ctx, cmd.UserID, cmd.ContainerID)
 	if err != nil {
 		if stderrors.Is(err, ErrContainerActionWaitTimeout) {
-			return nil, errors.NewWithMsgf(consts.ErrnoContainerActionWaitTimeout, "waiting timeout(resource has been used)")
+			return nil, errors.NewWithMsgf(consts.ErrnoContainerActionWaitTimeout, "等待超時（資源已被佔用）請稍後重試")
 		}
 		return nil, err
 	}

@@ -3,6 +3,7 @@ package adapters
 import (
 	"context"
 	"strings"
+	"sync"
 
 	"github.com/google/uuid"
 	"github.com/leadtek-test/q1/common/consts"
@@ -101,12 +102,34 @@ func (d *CreateContainerDispatcherChannel) DispatchCreateContainer(ctx context.C
 }
 
 func (d *CreateContainerDispatcherChannel) Listen(ctx context.Context) {
+	var wg sync.WaitGroup
 	for {
 		select {
 		case <-ctx.Done():
+			d.drainAndWait(&wg)
+			wg.Wait()
 			return
 		case task := <-d.queue:
-			go d.process(task)
+			wg.Add(1)
+			go func(task createContainerQueueTask) {
+				defer wg.Done()
+				d.process(task)
+			}(task)
+		}
+	}
+}
+
+func (d *CreateContainerDispatcherChannel) drainAndWait(wg *sync.WaitGroup) {
+	for {
+		select {
+		case task := <-d.queue:
+			wg.Add(1)
+			go func(task createContainerQueueTask) {
+				defer wg.Done()
+				d.process(task)
+			}(task)
+		default:
+			return
 		}
 	}
 }

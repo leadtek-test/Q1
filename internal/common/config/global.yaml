@@ -20,7 +20,9 @@ postgres:
   max-idle-conns: 10
   conn-max-lifetime: 1h
 
-server-addr: :8080
+server:
+  addr: :8080
+  shutdown-timeout: 30s
 
 security:
   jwt-secret: 123456

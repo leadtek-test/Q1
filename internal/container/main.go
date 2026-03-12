@@ -2,6 +2,11 @@ package main
 
 import (
 	"context"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/leadtek-test/q1/common/config"
@@ -14,21 +19,29 @@ import (
 	"github.com/spf13/viper"
 )
 
+const defaultServerShutdownTimeout = 30 * time.Second
+
 func init() {
 	logging.Init()
 }
 
 func main() {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	listenerCtx, stopListener := context.WithCancel(context.Background())
+	defer stopListener()
 
-	application, createContainerJobListener, cleanup := service.NewApplication(ctx)
+	application, createContainerJobListener, cleanup := service.NewApplication(listenerCtx)
 	defer cleanup()
+
+	var listenerWG sync.WaitGroup
 	if createContainerJobListener != nil {
-		go createContainerJobListener.Listen(ctx)
+		listenerWG.Add(1)
+		go func() {
+			defer listenerWG.Done()
+			createContainerJobListener.Listen(listenerCtx)
+		}()
 	}
 
-	server.RunHTTPServerOnAddr(viper.GetString("server-addr"), func(router *gin.Engine) {
+	httpServer := server.NewHTTPServerOnAddr(viper.GetString("server.addr"), func(router *gin.Engine) {
 		ports.RegisterHandlersWithOption(router, ports.HTTPServer{
 			App: application,
 		}, ports.ServerOptions{
@@ -41,4 +54,39 @@ func main() {
 			},
 		})
 	})
+
+	httpErrCh := make(chan error, 1)
+	go func() {
+		httpErrCh <- server.RunHTTPServerInstance(httpServer)
+	}()
+
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(sigCh)
+
+	select {
+	case err := <-httpErrCh:
+		if err != nil {
+			panic(err)
+		}
+	case <-sigCh:
+		shutdownTimeout := viper.GetDuration("server.shutdown-timeout")
+		if shutdownTimeout <= 0 {
+			shutdownTimeout = defaultServerShutdownTimeout
+		}
+
+		shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), shutdownTimeout)
+		if err := httpServer.Shutdown(shutdownCtx); err != nil {
+			cancelShutdown()
+			panic(err)
+		}
+		cancelShutdown()
+
+		stopListener()
+		listenerWG.Wait()
+
+		if err := <-httpErrCh; err != nil {
+			panic(err)
+		}
+	}
 }
