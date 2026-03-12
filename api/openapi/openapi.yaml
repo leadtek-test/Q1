@@ -6,10 +6,22 @@ info:
     此文件依照目前專案程式碼實際行為撰寫。
 
     重要回應規則：
-    - 業務成功與業務失敗都回傳 HTTP 200。
+    - 成功回傳 HTTP `200`，失敗回傳對應的 HTTP status code（非固定 200）。
     - 需以 `errno` 判斷成功/失敗（`0` 代表成功，非 `0` 代表錯誤）。
     - 大多數 API 都使用統一封裝：`{ "errno": number, "message": string, "data": any|null }`。
     - 只有 `/healthz` 不走上述封裝格式。
+
+    全域預設 status code 規則（可被自訂覆寫）：
+    - `400`：參數錯誤、綁定錯誤、格式錯誤。
+    - `401`：認證失敗（token/header 問題）。
+    - `404`：資源不存在（user/container/job）。
+    - `409`：資源衝突（例如帳號已存在）。
+    - `413`：請求體過大（上傳超限）。
+    - `423`：資源鎖定中，等待超時。
+    - `429`：服務繁忙（佇列滿）。
+    - `500`：服務內部錯誤（DB/config/本地 IO）。
+    - `502`：下游 runtime（Docker）操作失敗。
+    - `503`：服務暫時不可用（依賴不可用）。
 servers:
   - url: http://localhost:8080
 tags:
@@ -56,7 +68,10 @@ paths:
         - 密碼以 MD5 雜湊後存入資料庫。
 
         HTTP Status Code：
-        - 成功與業務錯誤皆回傳 `200`。
+        - `200`：註冊成功。
+        - `400`：JSON 綁定錯誤、欄位驗證失敗。
+        - `409`：使用者已存在。
+        - `500`：資料庫或服務內部錯誤。
 
         常見業務錯誤（`errno`）：
         - `1000`：JSON 綁定失敗。
@@ -78,7 +93,7 @@ paths:
                   password: "123456"
       responses:
         '200':
-          description: 成功或業務錯誤（請看 `errno`）。
+          description: 成功回應（`errno=0`）。
           content:
             application/json:
               schema:
@@ -106,6 +121,12 @@ paths:
                     errno: 4003
                     message: username already exists
                     data: null
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
   /api/v1/auth/login:
     post:
@@ -128,7 +149,10 @@ paths:
         - 若 repository 回傳 `user not found`，會繼續進行密碼比對流程，可能回 `errno=4005`。
 
         HTTP Status Code：
-        - 成功與業務錯誤皆回傳 `200`。
+        - `200`：登入成功。
+        - `400`：JSON 綁定錯誤、欄位驗證失敗。
+        - `401`：帳密不正確或 token 驗證類錯誤。
+        - `500`：JWT 簽發/設定或資料庫錯誤。
 
         常見業務錯誤（`errno`）：
         - `1000`：JSON 綁定失敗。
@@ -154,7 +178,7 @@ paths:
                   password: "123456"
       responses:
         '200':
-          description: 成功或業務錯誤（請看 `errno`）。
+          description: 成功回應（`errno=0`）。
           content:
             application/json:
               schema:
@@ -179,6 +203,12 @@ paths:
                     errno: 3006
                     message: "jwt token sign failed -> some sign error"
                     data: null
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
   /api/v1/user/{id}/files:
     post:
@@ -203,7 +233,11 @@ paths:
         - 目前程式碼不會強制檢查「JWT 使用者 ID 必須等於路徑 `{id}`」。
 
         HTTP Status Code：
-        - 成功與業務錯誤皆回傳 `200`。
+        - `200`：上傳成功。
+        - `400`：路徑/請求格式錯誤、檔案讀取失敗。
+        - `401`：缺少或無效 token。
+        - `413`：檔案超過大小限制。
+        - `500`：儲存層或本地 IO 錯誤。
 
         常見業務錯誤（`errno`）：
         - Auth 中介層：`3000`、`3001`、`3004`、`3007`、`3008`、`3009`、`3010`、`3011`。
@@ -229,7 +263,7 @@ paths:
               $ref: '#/components/schemas/UploadFileRequest'
       responses:
         '200':
-          description: 成功或業務錯誤（請看 `errno`）。
+          description: 成功回應（`errno=0`）。
           content:
             application/json:
               schema:
@@ -258,6 +292,14 @@ paths:
                     errno: 6004
                     message: file size exceeds 20MB limit
                     data: null
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '413':
+          $ref: '#/components/responses/PayloadTooLargeError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
   /api/v1/containers:
     post:
@@ -281,7 +323,12 @@ paths:
         - `succeeded` 時會附上 `container_id`；`failed` 時會附上 `error_message`（可從查詢 API 取得）。
 
         HTTP Status Code：
-        - 成功與業務錯誤皆回傳 `200`。
+        - `200`：任務已提交。
+        - `400`：JSON 綁定錯誤或 image 參數無效。
+        - `401`：缺少或無效 token。
+        - `429`：建立任務佇列已滿。
+        - `500`：資料庫錯誤。
+        - `503`：建立任務服務不可用。
 
         常見業務錯誤（`errno`）：
         - Auth 中介層：`3000`、`3001`、`3004`、`3007`、`3008`、`3009`、`3010`、`3011`。
@@ -312,7 +359,7 @@ paths:
                     TZ: Asia/Taipei
       responses:
         '200':
-          description: 成功或業務錯誤（請看 `errno`）。
+          description: 成功回應（`errno=0`）。
           content:
             application/json:
               schema:
@@ -334,6 +381,16 @@ paths:
                     errno: 7008
                     message: container create job queue is full
                     data: null
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
     get:
       tags:
         - Container
@@ -349,7 +406,9 @@ paths:
         - 回傳排序為 `id DESC`（新到舊）。
 
         HTTP Status Code：
-        - 成功與業務錯誤皆回傳 `200`。
+        - `200`：查詢成功。
+        - `401`：缺少或無效 token。
+        - `500`：資料庫錯誤。
 
         常見業務錯誤（`errno`）：
         - Auth 中介層：`3000`、`3001`、`3004`、`3007`、`3008`、`3009`、`3010`、`3011`。
@@ -359,7 +418,7 @@ paths:
         - BearerAuth: []
       responses:
         '200':
-          description: 成功或業務錯誤（請看 `errno`）。
+          description: 成功回應（`errno=0`）。
           content:
             application/json:
               schema:
@@ -385,6 +444,10 @@ paths:
                     errno: 3000
                     message: missing Authorization header
                     data: null
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
   /api/v1/containers/jobs/{job_id}:
     get:
@@ -405,7 +468,12 @@ paths:
         - `failed` 時可能帶 `error_message`。
 
         HTTP Status Code：
-        - 成功與業務錯誤皆回傳 `200`。
+        - `200`：查詢成功。
+        - `400`：job_id 格式錯誤。
+        - `401`：缺少或無效 token。
+        - `404`：找不到 job 或不屬於該使用者。
+        - `500`：資料庫錯誤。
+        - `503`：建立任務服務不可用。
 
         常見業務錯誤（`errno`）：
         - Auth 中介層：`3000`、`3001`、`3004`、`3007`、`3008`、`3009`、`3010`、`3011`。
@@ -420,7 +488,7 @@ paths:
         - $ref: '#/components/parameters/ContainerCreateJobID'
       responses:
         '200':
-          description: 成功或業務錯誤（請看 `errno`）。
+          description: 成功回應（`errno=0`）。
           content:
             application/json:
               schema:
@@ -454,6 +522,16 @@ paths:
                     errno: 7009
                     message: container create job not found
                     data: null
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
 
   /api/v1/containers/{id}/status:
     put:
@@ -479,7 +557,13 @@ paths:
         - 狀態變化時會更新資料庫狀態。
 
         HTTP Status Code：
-        - 成功與業務錯誤皆回傳 `200`。
+        - `200`：狀態更新成功。
+        - `400`：容器 ID / action / JSON 格式錯誤。
+        - `401`：缺少或無效 token。
+        - `404`：容器不存在。
+        - `423`：容器操作互斥鎖等待超時（資源占用中）。
+        - `500`：資料庫錯誤。
+        - `502`：runtime 啟停失敗。
 
         常見業務錯誤（`errno`）：
         - Auth 中介層：`3000`、`3001`、`3004`、`3007`、`3008`、`3009`、`3010`、`3011`。
@@ -510,7 +594,7 @@ paths:
                   action: stopped
       responses:
         '200':
-          description: 成功或業務錯誤（請看 `errno`）。
+          description: 成功回應（`errno=0`）。
           content:
             application/json:
               schema:
@@ -541,6 +625,18 @@ paths:
                     errno: 7003
                     message: container not found
                     data: null
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '423':
+          $ref: '#/components/responses/LockedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '502':
+          $ref: '#/components/responses/BadGatewayError'
 
   /api/v1/containers/{id}:
     delete:
@@ -560,7 +656,13 @@ paths:
         - runtime 刪除成功後，才刪除資料庫紀錄。
 
         HTTP Status Code：
-        - 成功與業務錯誤皆回傳 `200`。
+        - `200`：刪除成功。
+        - `400`：容器 ID 格式錯誤。
+        - `401`：缺少或無效 token。
+        - `404`：容器不存在。
+        - `423`：容器操作互斥鎖等待超時（資源占用中）。
+        - `500`：資料庫錯誤。
+        - `502`：runtime 刪除失敗。
 
         常見業務錯誤（`errno`）：
         - Auth 中介層：`3000`、`3001`、`3004`、`3007`、`3008`、`3009`、`3010`、`3011`。
@@ -575,7 +677,7 @@ paths:
         - $ref: '#/components/parameters/ContainerID'
       responses:
         '200':
-          description: 成功或業務錯誤（請看 `errno`）。
+          description: 成功回應（`errno=0`）。
           content:
             application/json:
               schema:
@@ -592,6 +694,18 @@ paths:
                     errno: 7007
                     message: "failed to delete container runtime -> some runtime error"
                     data: null
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '423':
+          $ref: '#/components/responses/LockedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '502':
+          $ref: '#/components/responses/BadGatewayError'
 
 components:
   securitySchemes:
@@ -628,6 +742,68 @@ components:
         type: string
         minLength: 1
         example: 6ccf39e1-6f47-4f9e-b04d-59e7e8f0b0ad
+
+  responses:
+    BadRequestError:
+      description: 請求格式或參數錯誤（例如 JSON 綁定失敗、欄位驗證失敗）。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    UnauthorizedError:
+      description: 認證失敗（例如缺少 Authorization、token 無效/過期）。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    NotFoundError:
+      description: 資源不存在（例如 user/container/job 找不到）。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    ConflictError:
+      description: 資源衝突（例如使用者名稱已存在）。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    PayloadTooLargeError:
+      description: 上傳檔案超過大小限制。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    LockedError:
+      description: 資源被鎖定且等待超時，請稍後重試。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    TooManyRequestsError:
+      description: 服務繁忙（例如建立容器任務佇列已滿）。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    BadGatewayError:
+      description: 下游 runtime（Docker）操作失敗。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    InternalServerError:
+      description: 服務內部錯誤（例如資料庫、本地 IO、設定錯誤）。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    ServiceUnavailableError:
+      description: 服務暫時不可用（例如必要依賴尚未就緒）。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
 
   schemas:
     HealthzResponse:

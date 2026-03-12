@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/leadtek-test/q1/internal/common/handler/errors"
+	"github.com/leadtek-test/q1/common/handler/errors"
 )
 
 type BaseResponse struct{}
@@ -37,7 +37,7 @@ func (base *BaseResponse) success(c *gin.Context, data interface{}) {
 }
 
 func (base *BaseResponse) error(c *gin.Context, err error) {
-	errno, errmsg := errors.Output(err)
+	errno, errmsg, statusCode := errors.OutputWithStatus(err)
 	r := response{
 		Errno:   errno,
 		Message: errmsg,
@@ -45,5 +45,5 @@ func (base *BaseResponse) error(c *gin.Context, err error) {
 	}
 	resp, _ := json.Marshal(r)
 	c.Set("response", string(resp))
-	c.JSON(http.StatusOK, r)
+	c.JSON(statusCode, r)
 }

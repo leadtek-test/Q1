@@ -2,6 +2,7 @@ package common
 
 import (
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -25,6 +26,9 @@ func TestBaseResponse(t *testing.T) {
 	if int(resp["errno"].(float64)) != consts.ErrnoSuccess {
 		t.Fatalf("unexpected errno: %v", resp["errno"])
 	}
+	if w.Code != http.StatusOK {
+		t.Fatalf("unexpected status: %d", w.Code)
+	}
 
 	w = httptest.NewRecorder()
 	c, _ = gin.CreateTestContext(w)
@@ -34,7 +38,10 @@ func TestBaseResponse(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("unmarshal failed: %v", err)
 	}
-	if int(resp["errno"].(float64)) != consts.ErrnoUnknownError {
+	if int(resp["errno"].(float64)) != consts.ErrnoAuthInvalidToken {
 		t.Fatalf("unexpected errno: %v", resp["errno"])
+	}
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("unexpected status: %d", w.Code)
 	}
 }

@@ -49,7 +49,7 @@ func TestRegisterHandlersWithOption(t *testing.T) {
 
 	protectedNoAuth := httptest.NewRecorder()
 	r.ServeHTTP(protectedNoAuth, httptest.NewRequest(http.MethodGet, "/api/v1/containers", nil))
-	if protectedNoAuth.Code != http.StatusOK {
+	if protectedNoAuth.Code != http.StatusUnauthorized {
 		t.Fatalf("protected no auth status: %d", protectedNoAuth.Code)
 	}
 

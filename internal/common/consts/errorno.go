@@ -1,5 +1,7 @@
 package consts
 
+import "net/http"
+
 const (
 	ErrnoSuccess      = 0
 	ErrnoUnknownError = 1
@@ -108,4 +110,62 @@ var ErrMsg = map[int]string{
 	ErrnoContainerActionWaitTimeout:    "等待超時（資源已被佔用）請稍後重試",
 
 	ErrnoDatabaseError: "database error",
+}
+
+var ErrStatusCode = map[int]int{
+	ErrnoSuccess:      http.StatusOK,
+	ErrnoUnknownError: http.StatusInternalServerError,
+
+	ErrnoBindRequestError:     http.StatusBadRequest,
+	ErrnoRequestValidateError: http.StatusBadRequest,
+
+	ErrnoAuthMissingAuthorizationHeader: http.StatusUnauthorized,
+	ErrnoAuthInvalidAuthorizationHeader: http.StatusUnauthorized,
+	ErrnoAuthTokenManagerUnavailable:    http.StatusServiceUnavailable,
+	ErrnoAuthInvalidToken:               http.StatusUnauthorized,
+	ErrnoAuthJWTSecretNotConfigured:     http.StatusInternalServerError,
+	ErrnoAuthJWTInvalidExpireConfig:     http.StatusInternalServerError,
+	ErrnoAuthJWTSignFailed:              http.StatusInternalServerError,
+	ErrnoAuthJWTMalformedToken:          http.StatusUnauthorized,
+	ErrnoAuthJWTSignatureInvalid:        http.StatusUnauthorized,
+	ErrnoAuthJWTExpiredToken:            http.StatusUnauthorized,
+	ErrnoAuthJWTInvalidClaims:           http.StatusUnauthorized,
+	ErrnoAuthJWTParseFailed:             http.StatusUnauthorized,
+
+	ErrnoUserUsernameRequired: http.StatusBadRequest,
+	ErrnoUserPasswordRequired: http.StatusBadRequest,
+	ErrnoUserPasswordTooShort: http.StatusBadRequest,
+	ErrnoUserAlreadyExists:    http.StatusConflict,
+	ErrnoUserNotFound:         http.StatusNotFound,
+	ErrnoUserPasswordNotMatch: http.StatusUnauthorized,
+
+	ErrnoFileRequired:          http.StatusBadRequest,
+	ErrnoFileNameRequired:      http.StatusBadRequest,
+	ErrnoFileOpenFailed:        http.StatusInternalServerError,
+	ErrnoFileReadFailed:        http.StatusBadRequest,
+	ErrnoFileSizeExceeded:      http.StatusRequestEntityTooLarge,
+	ErrnoFileUploadFailed:      http.StatusInternalServerError,
+	ErrnoFileWorkspaceSaveFail: http.StatusInternalServerError,
+
+	ErrnoContainerImageRequired:        http.StatusBadRequest,
+	ErrnoContainerWorkspacePrepareFail: http.StatusInternalServerError,
+	ErrnoContainerRuntimeCreateFail:    http.StatusBadGateway,
+	ErrnoContainerNotFound:             http.StatusNotFound,
+	ErrnoContainerInvalidStatusAction:  http.StatusBadRequest,
+	ErrnoContainerRuntimeStartFail:     http.StatusBadGateway,
+	ErrnoContainerRuntimeStopFail:      http.StatusBadGateway,
+	ErrnoContainerRuntimeDeleteFail:    http.StatusBadGateway,
+	ErrnoContainerCreateJobQueueFull:   http.StatusTooManyRequests,
+	ErrnoContainerCreateJobNotFound:    http.StatusNotFound,
+	ErrnoContainerCreateJobUnavailable: http.StatusServiceUnavailable,
+	ErrnoContainerActionWaitTimeout:    http.StatusLocked,
+
+	ErrnoDatabaseError: http.StatusInternalServerError,
+}
+
+func StatusCodeByErrno(errno int) int {
+	if statusCode, ok := ErrStatusCode[errno]; ok {
+		return statusCode
+	}
+	return http.StatusInternalServerError
 }

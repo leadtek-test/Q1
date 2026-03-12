@@ -39,7 +39,7 @@ func TestAuthMiddlewareVerifyToken(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/x", nil)
 		r.ServeHTTP(w, req)
 
-		if w.Code != http.StatusOK {
+		if w.Code != http.StatusUnauthorized {
 			t.Fatalf("unexpected status: %d", w.Code)
 		}
 	})
@@ -58,7 +58,7 @@ func TestAuthMiddlewareVerifyToken(t *testing.T) {
 		req.Header.Set("Authorization", "Bearer bad")
 		r.ServeHTTP(w, req)
 
-		if w.Code != http.StatusOK {
+		if w.Code != http.StatusUnauthorized {
 			t.Fatalf("unexpected status: %d", w.Code)
 		}
 	})
