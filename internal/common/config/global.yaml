@@ -25,3 +25,15 @@ server-addr: :8080
 security:
   jwt-secret: 123456
   jwt-expire-time: 15m
+
+file:
+  # Maximum upload size in bytes (20MB).
+  max-size: 20971520
+  # Workspace path used by this service process.
+  workspace-root: ./workspace
+  # Optional host-visible workspace root for Docker bind mount.
+  # Set this when the service runs inside a container and talks to host Docker daemon.
+  # Example: /var/lib/q1/workspace
+  workspace-runtime-root: ""
+  # Local object storage root.
+  object-root: ./object-storage

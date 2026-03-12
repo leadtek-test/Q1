@@ -63,6 +63,9 @@ func TestPostgresUserCRUD(t *testing.T) {
 	if err := pg.CreateUser(ctx, nil, create); err != nil {
 		t.Fatalf("CreateUser unexpected error: %v", err)
 	}
+	if create.ID == 0 || create.CreatedAt.IsZero() || create.UpdatedAt.IsZero() {
+		t.Fatalf("CreateUser should hydrate id/timestamps, got %+v", create)
+	}
 
 	got, err := pg.GetUser(ctx, builder.NewUser().Usernames("alice"))
 	if err != nil {
@@ -106,6 +109,9 @@ func TestPostgresContainerCRUD(t *testing.T) {
 	}
 	if err := pg.CreateContainer(ctx, nil, create); err != nil {
 		t.Fatalf("CreateContainer unexpected error: %v", err)
+	}
+	if create.ID == 0 || create.CreatedAt.IsZero() || create.UpdatedAt.IsZero() {
+		t.Fatalf("CreateContainer should hydrate id/timestamps, got %+v", create)
 	}
 
 	items, err := pg.BatchGetContainerByUser(ctx, 10)
@@ -173,6 +179,9 @@ func TestPostgresCreateFile(t *testing.T) {
 	}
 	if err := pg.CreateFile(ctx, nil, create); err != nil {
 		t.Fatalf("CreateFile unexpected error: %v", err)
+	}
+	if create.ID == 0 || create.CreatedAt.IsZero() || create.UpdatedAt.IsZero() {
+		t.Fatalf("CreateFile should hydrate id/timestamps, got %+v", create)
 	}
 	var count int64
 	if err := pg.db.WithContext(ctx).Model(&FileModel{}).Where("user_id = ? AND file_name = ?", create.UserID, create.FileName).Count(&count).Error; err != nil {

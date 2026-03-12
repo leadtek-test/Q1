@@ -23,6 +23,7 @@ func NewApplication(ctx context.Context) (app.Application, func()) {
 func newApplication(_ context.Context) app.Application {
 	viper.SetDefault("file.max-size", defaultMaxUploadFileSize)
 	viper.SetDefault("file.workspace-root", "./workspace")
+	viper.SetDefault("file.workspace-runtime-root", "")
 	viper.SetDefault("file.object-root", "./object-storage")
 
 	postgresDB := persistent.NewPostgres()
@@ -38,7 +39,10 @@ func newApplication(_ context.Context) app.Application {
 	hasher := adapters.NewHasherRepositoryMD5()
 	objectStorage := adapters.NewObjectStorageRepositoryLocal(viper.GetString("file.object-root"))
 	workspace := adapters.NewWorkspaceRepositoryLocal(viper.GetString("file.workspace-root"))
-	containerRuntime, err := adapters.NewContainerRuntimeRepositoryDocker()
+	containerRuntime, err := adapters.NewContainerRuntimeRepositoryDocker(
+		viper.GetString("file.workspace-root"),
+		viper.GetString("file.workspace-runtime-root"),
+	)
 	if err != nil {
 		panic(err)
 	}

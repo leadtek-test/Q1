@@ -237,8 +237,7 @@ func TestLoginUserHandler(t *testing.T) {
 	handler := NewLoginUserHandler(
 		fakeUserRepo{
 			getByUsernameFn: func(context.Context, string) (domainuser.User, error) {
-				// keep current code path behavior.
-				return domainuser.User{ID: 1, Username: "alice", PasswordHashed: "x"}, commonerrors.New(consts.ErrnoUserNotFound)
+				return domainuser.User{ID: 1, Username: "alice", PasswordHashed: "x"}, nil
 			},
 		},
 		fakeHasher{compareFn: func(string, string) bool { return true }},

@@ -3,6 +3,7 @@ package adapters
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -13,20 +14,31 @@ import (
 )
 
 type ContainerRuntimeRepositoryDocker struct {
-	client *client.Client
+	client               *client.Client
+	workspaceRoot        string
+	workspaceRuntimeRoot string
 }
 
-func NewContainerRuntimeRepositoryDocker() (*ContainerRuntimeRepositoryDocker, error) {
+func NewContainerRuntimeRepositoryDocker(workspaceRoot string, workspaceRuntimeRoot string) (*ContainerRuntimeRepositoryDocker, error) {
 	cli, err := client.New(client.FromEnv, client.WithAPIVersionFromEnv())
 	if err != nil {
 		return nil, err
 	}
-	return &ContainerRuntimeRepositoryDocker{client: cli}, nil
+	return &ContainerRuntimeRepositoryDocker{
+		client:               cli,
+		workspaceRoot:        strings.TrimSpace(workspaceRoot),
+		workspaceRuntimeRoot: strings.TrimSpace(workspaceRuntimeRoot),
+	}, nil
 }
 
 func (d ContainerRuntimeRepositoryDocker) Create(ctx context.Context, userID uint, spec container.CreateSpec, workspacePath string) (string, error) {
 	if err := d.ensureImage(ctx, spec.Image); err != nil {
 		return "", err
+	}
+
+	mountSource, err := d.resolveWorkspaceMountPath(workspacePath)
+	if err != nil {
+		return "", fmt.Errorf("resolve workspace mount path failed: %w", err)
 	}
 
 	env := make([]string, 0, len(spec.Env))
@@ -43,7 +55,7 @@ func (d ContainerRuntimeRepositoryDocker) Create(ctx context.Context, userID uin
 			Tty:   false,
 		},
 		HostConfig: &dockercontainer.HostConfig{
-			Binds: []string{workspacePath + ":/workspace"},
+			Binds: []string{mountSource + ":/workspace"},
 		},
 		Name: name,
 	})
@@ -97,4 +109,43 @@ func sanitizeRuntimeName(name string) string {
 		return "default"
 	}
 	return output
+}
+
+func (d ContainerRuntimeRepositoryDocker) resolveWorkspaceMountPath(workspacePath string) (string, error) {
+	path := strings.TrimSpace(workspacePath)
+	if path == "" {
+		return "", fmt.Errorf("workspace path is empty")
+	}
+
+	pathAbs, err := filepath.Abs(path)
+	if err != nil {
+		return "", fmt.Errorf("resolve workspace absolute path failed: %w", err)
+	}
+
+	if d.workspaceRuntimeRoot == "" {
+		return filepath.Clean(pathAbs), nil
+	}
+
+	workspaceRoot := strings.TrimSpace(d.workspaceRoot)
+	if workspaceRoot == "" {
+		return "", fmt.Errorf("workspace root is required when workspace runtime root is set")
+	}
+	workspaceRootAbs, err := filepath.Abs(workspaceRoot)
+	if err != nil {
+		return "", fmt.Errorf("resolve workspace root absolute path failed: %w", err)
+	}
+
+	rel, err := filepath.Rel(workspaceRootAbs, pathAbs)
+	if err != nil {
+		return "", fmt.Errorf("resolve relative workspace path failed: %w", err)
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("workspace path %q is outside workspace root %q", pathAbs, workspaceRootAbs)
+	}
+
+	runtimeRootAbs, err := filepath.Abs(d.workspaceRuntimeRoot)
+	if err != nil {
+		return "", fmt.Errorf("resolve workspace runtime root absolute path failed: %w", err)
+	}
+	return filepath.Clean(filepath.Join(runtimeRootAbs, rel)), nil
 }

@@ -79,6 +79,9 @@ func TestContainerRepositoryPostgresCRUD(t *testing.T) {
 	if err := repo.Create(ctx, data); err != nil {
 		t.Fatalf("Create unexpected error: %v", err)
 	}
+	if data.ID == 0 || data.CreatedAt.IsZero() || data.UpdatedAt.IsZero() {
+		t.Fatalf("Create should hydrate domain id/timestamps, got %+v", data)
+	}
 
 	items, err := repo.ListByUser(ctx, data.UserID)
 	if err != nil {

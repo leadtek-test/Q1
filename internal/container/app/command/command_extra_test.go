@@ -104,7 +104,7 @@ func TestLoginUserHandlerErrorBranches(t *testing.T) {
 	handler = NewLoginUserHandler(
 		fakeUserRepo{
 			getByUsernameFn: func(context.Context, string) (domainuser.User, error) {
-				return baseUser, commonerrors.New(consts.ErrnoUserNotFound)
+				return baseUser, nil
 			},
 		},
 		fakeHasher{compareFn: func(string, string) bool { return false }},
@@ -117,7 +117,7 @@ func TestLoginUserHandlerErrorBranches(t *testing.T) {
 	handler = NewLoginUserHandler(
 		fakeUserRepo{
 			getByUsernameFn: func(context.Context, string) (domainuser.User, error) {
-				return baseUser, commonerrors.New(consts.ErrnoUserNotFound)
+				return baseUser, nil
 			},
 		},
 		fakeHasher{compareFn: func(string, string) bool { return true }},
@@ -130,6 +130,19 @@ func TestLoginUserHandlerErrorBranches(t *testing.T) {
 	)
 	_, err = handler.Handle(context.Background(), LoginUser{Username: "alice", Password: "123456"})
 	assertErrno(t, err, consts.ErrnoDatabaseError)
+
+	handler = NewLoginUserHandler(
+		fakeUserRepo{
+			getByUsernameFn: func(context.Context, string) (domainuser.User, error) {
+				return domainuser.User{}, commonerrors.New(consts.ErrnoUserNotFound)
+			},
+		},
+		fakeHasher{},
+		fakeTokenManager{},
+		logger,
+	)
+	_, err = handler.Handle(context.Background(), LoginUser{Username: "alice", Password: "123456"})
+	assertErrno(t, err, consts.ErrnoUserNotFound)
 
 	_, err = handler.Handle(context.Background(), LoginUser{Username: "alice", Password: ""})
 	assertErrno(t, err, consts.ErrnoUserPasswordRequired)

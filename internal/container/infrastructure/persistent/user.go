@@ -45,11 +45,10 @@ func (d Postgres) BatchGetUser(ctx context.Context, query *builder.User) (result
 }
 
 func (d Postgres) CreateUser(ctx context.Context, tx *gorm.DB, create *UserModel) (err error) {
-	var returning UserModel
 	_, deferLog := logging.WhenPostgres(ctx, "CreateUser", create)
-	defer deferLog(returning, &err)
+	defer deferLog(create, &err)
 
-	err = d.UseTransaction(tx).WithContext(ctx).Model(&returning).Clauses(clause.Returning{}).Create(create).Error
+	err = d.UseTransaction(tx).WithContext(ctx).Clauses(clause.Returning{}).Create(create).Error
 	if err != nil {
 		if isUniqueViolation(err) {
 			return errors2.New(consts.ErrnoUserAlreadyExists)

@@ -21,17 +21,12 @@ type FileModel struct {
 }
 
 func (d Postgres) CreateFile(ctx context.Context, tx *gorm.DB, create *FileModel) (err error) {
-	var returning FileModel
 	_, deferLog := logging.WhenPostgres(ctx, "CreateFile", create)
-	defer deferLog(returning, &err)
+	defer deferLog(create, &err)
 
-	err = d.UseTransaction(tx).WithContext(ctx).Model(&returning).Clauses(clause.Returning{}).Create(create).Error
+	err = d.UseTransaction(tx).WithContext(ctx).Clauses(clause.Returning{}).Create(create).Error
 	if err != nil {
 		return errors2.NewWithError(consts.ErrnoDatabaseError, err)
 	}
-
-	create.ID = returning.ID
-	create.CreatedAt = returning.CreatedAt
-	create.UpdatedAt = returning.UpdatedAt
 	return nil
 }
