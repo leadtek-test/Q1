@@ -23,6 +23,13 @@ const (
 	ErrnoAuthJWTExpiredToken            = 3009
 	ErrnoAuthJWTInvalidClaims           = 3010
 	ErrnoAuthJWTParseFailed             = 3011
+
+	// user error 4xxx
+	ErrnoUserUsernameRequired = 4000
+	ErrnoUserPasswordRequired = 4001
+	ErrnoUserPasswordTooShort = 4002
+	ErrnoUserAlreadyExists    = 4003
+	ErrnoUserNotFound         = 4004
 )
 
 var ErrMsg = map[int]string{
@@ -44,4 +51,10 @@ var ErrMsg = map[int]string{
 	ErrnoAuthJWTExpiredToken:            "jwt token is expired",
 	ErrnoAuthJWTInvalidClaims:           "jwt token claims is invalid",
 	ErrnoAuthJWTParseFailed:             "jwt token parse failed",
+
+	ErrnoUserUsernameRequired: "username is required",
+	ErrnoUserPasswordRequired: "password is required",
+	ErrnoUserPasswordTooShort: "password must be at least 6 characters",
+	ErrnoUserAlreadyExists:    "username already exists",
+	ErrnoUserNotFound:         "user not found",
 }

@@ -31,7 +31,6 @@ func main() {
 		}, ports.ServerOptions{
 			BaseURL: "/api",
 			ProtectedMiddlewares: []gin.HandlerFunc{
-				// TODO add token manager
 				middleware.NewAuthMiddleware(adapters.NewTokenManagerRepositoryJWT(
 					viper.GetString("security.jwt-secret"),
 					viper.GetDuration("security.jwt-expire-time"),
