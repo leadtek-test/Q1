@@ -57,6 +57,8 @@ func NewListContainersHandler(repo container.Repository, runtime container.Runti
 }
 
 func (h listContainersHandler) Handle(ctx context.Context, query ListContainers) (*ListContainersResult, error) {
+	_ = h.runtime
+
 	if query.UserID == 0 {
 		return nil, errors.New(consts.ErrnoAuthInvalidToken)
 	}

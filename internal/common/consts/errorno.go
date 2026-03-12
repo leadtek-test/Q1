@@ -45,6 +45,11 @@ const (
 	ErrnoContainerImageRequired        = 7000
 	ErrnoContainerWorkspacePrepareFail = 7001
 	ErrnoContainerRuntimeCreateFail    = 7002
+	ErrnoContainerNotFound             = 7003
+	ErrnoContainerInvalidStatusAction  = 7004
+	ErrnoContainerRuntimeStartFail     = 7005
+	ErrnoContainerRuntimeStopFail      = 7006
+	ErrnoContainerRuntimeDeleteFail    = 7007
 
 	// database error 5xxx
 	ErrnoDatabaseError = 5000
@@ -88,6 +93,11 @@ var ErrMsg = map[int]string{
 	ErrnoContainerImageRequired:        "container image is required",
 	ErrnoContainerWorkspacePrepareFail: "failed to prepare container workspace",
 	ErrnoContainerRuntimeCreateFail:    "failed to create container runtime",
+	ErrnoContainerNotFound:             "container not found",
+	ErrnoContainerInvalidStatusAction:  "invalid container status action",
+	ErrnoContainerRuntimeStartFail:     "failed to start container runtime",
+	ErrnoContainerRuntimeStopFail:      "failed to stop container runtime",
+	ErrnoContainerRuntimeDeleteFail:    "failed to delete container runtime",
 
 	ErrnoDatabaseError: "database error",
 }

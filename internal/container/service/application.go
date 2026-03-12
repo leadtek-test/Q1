@@ -50,10 +50,12 @@ func newApplication(_ context.Context) app.Application {
 
 	return app.Application{
 		Commands: app.Commands{
-			CreateUser:      command.NewCreateUserHandler(userRepoPostgres, hasher, logger),
-			LoginUser:       command.NewLoginUserHandler(userRepoPostgres, hasher, tokenManager, logger),
-			UploadFile:      command.NewUploadFileHandler(fileRepoPostgres, objectStorage, workspace, maxFileSize, logger),
-			CreateContainer: command.NewCreateContainerHandler(containerRepoPostgres, containerRuntime, workspace, logger),
+			CreateUser:            command.NewCreateUserHandler(userRepoPostgres, hasher, logger),
+			LoginUser:             command.NewLoginUserHandler(userRepoPostgres, hasher, tokenManager, logger),
+			UploadFile:            command.NewUploadFileHandler(fileRepoPostgres, objectStorage, workspace, maxFileSize, logger),
+			CreateContainer:       command.NewCreateContainerHandler(containerRepoPostgres, containerRuntime, workspace, logger),
+			UpdateContainerStatus: command.NewUpdateContainerStatusHandler(containerRepoPostgres, containerRuntime, logger),
+			DeleteContainer:       command.NewDeleteContainerHandler(containerRepoPostgres, containerRuntime, logger),
 		},
 		Queries: app.Queries{
 			ListContainers: query.NewListContainersHandler(containerRepoPostgres, containerRuntime, logger),

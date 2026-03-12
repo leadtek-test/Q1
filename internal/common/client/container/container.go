@@ -6,3 +6,7 @@ type CreateContainerRequest struct {
 	Command []string          `json:"command"`
 	Env     map[string]string `json:"env"`
 }
+
+type UpdateContainerStatusRequest struct {
+	Action string `json:"action"`
+}

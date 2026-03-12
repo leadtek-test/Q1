@@ -43,7 +43,7 @@ func RegisterHandlersWithOption(router gin.IRouter, handlers ServerInterface, op
 
 			protected.POST("/containers", handlers.CreateContainer)
 			protected.GET("/containers", handlers.ListContainers)
-			protected.PUT("/containers/status", handlers.UpdateContainerStatus)
+			protected.PUT("/containers/:id/status", handlers.UpdateContainerStatus)
 			protected.DELETE("/containers/:id", handlers.DeleteContainer)
 		}
 	}

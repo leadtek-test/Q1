@@ -11,10 +11,12 @@ type Application struct {
 }
 
 type Commands struct {
-	CreateUser      command.CreateUserHandler
-	LoginUser       command.LoginUserHandler
-	UploadFile      command.UploadFileHandler
-	CreateContainer command.CreateContainerHandler
+	CreateUser            command.CreateUserHandler
+	LoginUser             command.LoginUserHandler
+	UploadFile            command.UploadFileHandler
+	CreateContainer       command.CreateContainerHandler
+	UpdateContainerStatus command.UpdateContainerStatusHandler
+	DeleteContainer       command.DeleteContainerHandler
 }
 
 type Queries struct {

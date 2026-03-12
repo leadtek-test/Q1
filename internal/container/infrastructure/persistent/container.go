@@ -2,6 +2,7 @@ package persistent
 
 import (
 	"context"
+	"errors"
 
 	"github.com/leadtek-test/q1/common/consts"
 	errors2 "github.com/leadtek-test/q1/common/handler/errors"
@@ -46,4 +47,57 @@ func (d Postgres) BatchGetContainerByUser(ctx context.Context, userID uint) (res
 		return nil, errors2.NewWithError(consts.ErrnoDatabaseError, err)
 	}
 	return results, nil
+}
+
+func (d Postgres) GetContainerByIDAndUser(ctx context.Context, id, userID uint) (result *ContainerModel, err error) {
+	_, deferLog := logging.WhenPostgres(ctx, "GetContainerByIDAndUser", id, userID)
+	defer deferLog(result, &err)
+
+	var data ContainerModel
+	err = d.db.WithContext(ctx).Where("id = ? AND user_id = ?", id, userID).First(&data).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors2.New(consts.ErrnoContainerNotFound)
+		}
+		return nil, errors2.NewWithError(consts.ErrnoDatabaseError, err)
+	}
+	return &data, nil
+}
+
+func (d Postgres) UpdateContainer(ctx context.Context, tx *gorm.DB, update *ContainerModel) (err error) {
+	_, deferLog := logging.WhenPostgres(ctx, "UpdateContainer", update)
+	defer deferLog(update, &err)
+
+	payload := map[string]any{
+		"name":       update.Name,
+		"image":      update.Image,
+		"command":    update.Command,
+		"env":        update.Env,
+		"runtime_id": update.RuntimeID,
+		"status":     update.Status,
+	}
+	result := d.UseTransaction(tx).WithContext(ctx).Model(&ContainerModel{}).
+		Where("id = ? AND user_id = ?", update.ID, update.UserID).
+		Updates(payload)
+	if result.Error != nil {
+		return errors2.NewWithError(consts.ErrnoDatabaseError, result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return errors2.New(consts.ErrnoContainerNotFound)
+	}
+	return nil
+}
+
+func (d Postgres) DeleteContainer(ctx context.Context, tx *gorm.DB, id, userID uint) (err error) {
+	_, deferLog := logging.WhenPostgres(ctx, "DeleteContainer", id, userID)
+	defer deferLog(nil, &err)
+
+	result := d.UseTransaction(tx).WithContext(ctx).Where("id = ? AND user_id = ?", id, userID).Delete(&ContainerModel{})
+	if result.Error != nil {
+		return errors2.NewWithError(consts.ErrnoDatabaseError, result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return errors2.New(consts.ErrnoContainerNotFound)
+	}
+	return nil
 }

@@ -251,11 +251,91 @@ func (H HTTPServer) ListContainers(c *gin.Context) {
 }
 
 func (H HTTPServer) UpdateContainerStatus(c *gin.Context) {
-	//TODO implement me
-	panic("implement me")
+	var (
+		req  client.UpdateContainerStatusRequest
+		resp dto.ContainerResponse
+		err  error
+	)
+	defer func() {
+		H.Response(c, err, &resp)
+	}()
+
+	userID := c.GetUint(contextx.KeyUserID)
+	if userID == 0 {
+		err = errors.New(consts.ErrnoAuthInvalidToken)
+		return
+	}
+
+	containerID, err := parseContainerID(c.Param("id"))
+	if err != nil {
+		return
+	}
+
+	if err = c.ShouldBindJSON(&req); err != nil {
+		err = errors.NewWithError(consts.ErrnoBindRequestError, err)
+		return
+	}
+
+	r, err := H.App.Commands.UpdateContainerStatus.Handle(c, command.UpdateContainerStatus{
+		UserID:      userID,
+		ContainerID: containerID,
+		Action:      req.Action,
+	})
+	if err != nil {
+		return
+	}
+
+	resp = dto.ContainerResponse{
+		ID:        r.ID,
+		UserID:    r.UserID,
+		Name:      r.Name,
+		Image:     r.Image,
+		Command:   r.Command,
+		Env:       r.Env,
+		RuntimeID: r.RuntimeID,
+		Status:    r.Status,
+		CreatedAt: r.CreatedAt,
+		UpdatedAt: r.UpdatedAt,
+	}
 }
 
 func (H HTTPServer) DeleteContainer(c *gin.Context) {
-	//TODO implement me
-	panic("implement me")
+	var (
+		resp dto.DeleteContainerResponse
+		err  error
+	)
+	defer func() {
+		H.Response(c, err, &resp)
+	}()
+
+	userID := c.GetUint(contextx.KeyUserID)
+	if userID == 0 {
+		err = errors.New(consts.ErrnoAuthInvalidToken)
+		return
+	}
+
+	containerID, err := parseContainerID(c.Param("id"))
+	if err != nil {
+		return
+	}
+
+	r, err := H.App.Commands.DeleteContainer.Handle(c, command.DeleteContainer{
+		UserID:      userID,
+		ContainerID: containerID,
+	})
+	if err != nil {
+		return
+	}
+
+	resp = dto.DeleteContainerResponse{
+		Deleted: r.Deleted,
+	}
+}
+
+func parseContainerID(raw string) (uint, error) {
+	id, parseErr := strconv.ParseUint(strings.TrimSpace(raw), 10, 64)
+	if parseErr != nil || id == 0 {
+		return 0, errors.NewWithMsgf(consts.ErrnoRequestValidateError, "invalid container id: %s", raw)
+	}
+	return uint(id), nil
 }
