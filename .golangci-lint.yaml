@@ -27,7 +27,6 @@ linters:
     - staticcheck
     - unconvert
     - unparam
-    - unused
     - whitespace
   settings:
     dupl:
@@ -44,6 +43,10 @@ linters:
       max-func-lines: 25
     revive:
       confidence: 0.8
+    staticcheck:
+      checks:
+        - all
+        - "-U1000"
 
 issues:
   max-issues-per-linter: 0

@@ -6,6 +6,7 @@ import (
 	"github.com/leadtek-test/q1/container/adapters"
 	"github.com/leadtek-test/q1/container/app"
 	"github.com/leadtek-test/q1/container/app/command"
+	"github.com/leadtek-test/q1/container/infrastructure/persistent"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -17,6 +18,9 @@ func NewApplication(ctx context.Context) (app.Application, func()) {
 }
 
 func newApplication(_ context.Context) app.Application {
+	postgresDB := persistent.NewPostgres()
+	userRepoPostgres := adapters.NewUserRepositoryPostgres(postgresDB)
+
 	tokenManager := adapters.NewTokenManagerRepositoryJWT(
 		viper.GetString("security.jwt-secret"),
 		viper.GetDuration("security.jwt-expire-time"),
@@ -24,7 +28,7 @@ func newApplication(_ context.Context) app.Application {
 	hasher := adapters.NewHasherRepositoryMD5()
 	return app.Application{
 		Commands: app.Commands{
-			CreateUser: command.NewCreateUserHandler(nil, hasher, tokenManager, logrus.StandardLogger()),
+			CreateUser: command.NewCreateUserHandler(userRepoPostgres, hasher, tokenManager, logrus.StandardLogger()),
 		},
 		Queries: app.Queries{},
 	}

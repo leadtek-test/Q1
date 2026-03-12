@@ -8,12 +8,17 @@ redis:
     read_timeout: 1000
     write_timeout: 100
 
-posgres:
+postgres:
   user: postgres
   password: postgres
   host: localhost
   port: 5432
   dbname: "q1"
+  sslmode: disable
+  timezone: Asia/Taipei
+  max-open-conns: 25
+  max-idle-conns: 10
+  conn-max-lifetime: 1h
 
 server-addr: :8080
 

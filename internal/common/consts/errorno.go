@@ -30,6 +30,9 @@ const (
 	ErrnoUserPasswordTooShort = 4002
 	ErrnoUserAlreadyExists    = 4003
 	ErrnoUserNotFound         = 4004
+
+	// database error 5xxx
+	ErrnoDatabaseError = 5000
 )
 
 var ErrMsg = map[int]string{
@@ -57,4 +60,6 @@ var ErrMsg = map[int]string{
 	ErrnoUserPasswordTooShort: "password must be at least 6 characters",
 	ErrnoUserAlreadyExists:    "username already exists",
 	ErrnoUserNotFound:         "user not found",
+
+	ErrnoDatabaseError: "database error",
 }

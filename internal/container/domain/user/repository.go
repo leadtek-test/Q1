@@ -32,7 +32,7 @@ type Repository interface {
 	//
 	// 邊界與約定：
 	// 1. id 必須為有效主鍵（通常 > 0）；無效 id 應回傳參數錯誤。
-	// 2. 查無資料時，應回傳零值 User 與可判別的 not found 錯誤。
+	// 2. 查無資料時，應回傳零值 User 與 consts.ErrnoUserNotFound 錯誤。
 	// 3. 查詢結果應是與儲存層一致的最新已提交資料，不應回傳部分欄位。
 	// 4. 若 ctx 取消或逾時，應優先回傳對應的 context 錯誤。
 	GetByID(ctx context.Context, id uint) (User, error)
