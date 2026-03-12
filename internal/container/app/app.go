@@ -1,6 +1,9 @@
 package app
 
-import "github.com/leadtek-test/q1/container/app/command"
+import (
+	"github.com/leadtek-test/q1/container/app/command"
+	"github.com/leadtek-test/q1/container/app/query"
+)
 
 type Application struct {
 	Commands Commands
@@ -8,9 +11,12 @@ type Application struct {
 }
 
 type Commands struct {
-	CreateUser command.CreateUserHandler
-	LoginUser  command.LoginUserHandler
-	UploadFile command.UploadFileHandler
+	CreateUser      command.CreateUserHandler
+	LoginUser       command.LoginUserHandler
+	UploadFile      command.UploadFileHandler
+	CreateContainer command.CreateContainerHandler
 }
 
-type Queries struct{}
+type Queries struct {
+	ListContainers query.ListContainersHandler
+}

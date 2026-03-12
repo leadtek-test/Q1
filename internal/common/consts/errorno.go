@@ -41,6 +41,11 @@ const (
 	ErrnoFileUploadFailed      = 6005
 	ErrnoFileWorkspaceSaveFail = 6006
 
+	// container error 7xxx
+	ErrnoContainerImageRequired        = 7000
+	ErrnoContainerWorkspacePrepareFail = 7001
+	ErrnoContainerRuntimeCreateFail    = 7002
+
 	// database error 5xxx
 	ErrnoDatabaseError = 5000
 )
@@ -79,6 +84,10 @@ var ErrMsg = map[int]string{
 	ErrnoFileSizeExceeded:      "file size exceeds 20MB limit",
 	ErrnoFileUploadFailed:      "failed to upload file",
 	ErrnoFileWorkspaceSaveFail: "failed to save file in workspace",
+
+	ErrnoContainerImageRequired:        "container image is required",
+	ErrnoContainerWorkspacePrepareFail: "failed to prepare container workspace",
+	ErrnoContainerRuntimeCreateFail:    "failed to create container runtime",
 
 	ErrnoDatabaseError: "database error",
 }

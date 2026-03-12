@@ -13,6 +13,7 @@ import (
 	"github.com/leadtek-test/q1/container/app"
 	"github.com/leadtek-test/q1/container/app/command"
 	"github.com/leadtek-test/q1/container/app/dto"
+	appquery "github.com/leadtek-test/q1/container/app/query"
 	"github.com/leadtek-test/q1/container/ports/contextx"
 	"github.com/spf13/viper"
 )
@@ -165,13 +166,88 @@ func (H HTTPServer) Upload(c *gin.Context) {
 }
 
 func (H HTTPServer) CreateContainer(c *gin.Context) {
-	//TODO implement me
-	panic("implement me")
+	var (
+		req  client.CreateContainerRequest
+		resp dto.ContainerResponse
+		err  error
+	)
+	defer func() {
+		H.Response(c, err, &resp)
+	}()
+
+	userID := c.GetUint(contextx.KeyUserID)
+	if userID == 0 {
+		err = errors.New(consts.ErrnoAuthInvalidToken)
+		return
+	}
+
+	if err = c.ShouldBindJSON(&req); err != nil {
+		err = errors.NewWithError(consts.ErrnoBindRequestError, err)
+		return
+	}
+
+	r, err := H.App.Commands.CreateContainer.Handle(c, command.CreateContainer{
+		UserID:  userID,
+		Name:    req.Name,
+		Image:   req.Image,
+		Command: req.Command,
+		Env:     req.Env,
+	})
+	if err != nil {
+		return
+	}
+
+	resp = dto.ContainerResponse{
+		ID:        r.ID,
+		UserID:    r.UserID,
+		Name:      r.Name,
+		Image:     r.Image,
+		Command:   r.Command,
+		Env:       r.Env,
+		RuntimeID: r.RuntimeID,
+		Status:    r.Status,
+		CreatedAt: r.CreatedAt,
+		UpdatedAt: r.UpdatedAt,
+	}
 }
 
 func (H HTTPServer) ListContainers(c *gin.Context) {
-	//TODO implement me
-	panic("implement me")
+	var (
+		resp []dto.ContainerResponse
+		err  error
+	)
+	defer func() {
+		H.Response(c, err, &resp)
+	}()
+
+	userID := c.GetUint(contextx.KeyUserID)
+	if userID == 0 {
+		err = errors.New(consts.ErrnoAuthInvalidToken)
+		return
+	}
+
+	r, err := H.App.Queries.ListContainers.Handle(c, appquery.ListContainers{
+		UserID: userID,
+	})
+	if err != nil {
+		return
+	}
+
+	resp = make([]dto.ContainerResponse, 0, len(r.Containers))
+	for _, item := range r.Containers {
+		resp = append(resp, dto.ContainerResponse{
+			ID:        item.ID,
+			UserID:    item.UserID,
+			Name:      item.Name,
+			Image:     item.Image,
+			Command:   item.Command,
+			Env:       item.Env,
+			RuntimeID: item.RuntimeID,
+			Status:    item.Status,
+			CreatedAt: item.CreatedAt,
+			UpdatedAt: item.UpdatedAt,
+		})
+	}
 }
 
 func (H HTTPServer) UpdateContainerStatus(c *gin.Context) {

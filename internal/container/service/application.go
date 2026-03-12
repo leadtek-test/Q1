@@ -6,6 +6,7 @@ import (
 	"github.com/leadtek-test/q1/container/adapters"
 	"github.com/leadtek-test/q1/container/app"
 	"github.com/leadtek-test/q1/container/app/command"
+	"github.com/leadtek-test/q1/container/app/query"
 	"github.com/leadtek-test/q1/container/infrastructure/persistent"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -27,6 +28,7 @@ func newApplication(_ context.Context) app.Application {
 	postgresDB := persistent.NewPostgres()
 	userRepoPostgres := adapters.NewUserRepositoryPostgres(postgresDB)
 	fileRepoPostgres := adapters.NewFileRepositoryPostgres(postgresDB)
+	containerRepoPostgres := adapters.NewContainerRepositoryPostgres(postgresDB)
 
 	tokenManager := adapters.NewTokenManagerRepositoryJWT(
 		viper.GetString("security.jwt-secret"),
@@ -36,6 +38,10 @@ func newApplication(_ context.Context) app.Application {
 	hasher := adapters.NewHasherRepositoryMD5()
 	objectStorage := adapters.NewObjectStorageRepositoryLocal(viper.GetString("file.object-root"))
 	workspace := adapters.NewWorkspaceRepositoryLocal(viper.GetString("file.workspace-root"))
+	containerRuntime, err := adapters.NewContainerRuntimeRepositoryDocker()
+	if err != nil {
+		panic(err)
+	}
 
 	maxFileSize := viper.GetInt64("file.max-size")
 	if maxFileSize <= 0 {
@@ -44,10 +50,13 @@ func newApplication(_ context.Context) app.Application {
 
 	return app.Application{
 		Commands: app.Commands{
-			CreateUser: command.NewCreateUserHandler(userRepoPostgres, hasher, logger),
-			LoginUser:  command.NewLoginUserHandler(userRepoPostgres, hasher, tokenManager, logger),
-			UploadFile: command.NewUploadFileHandler(fileRepoPostgres, objectStorage, workspace, maxFileSize, logger),
+			CreateUser:      command.NewCreateUserHandler(userRepoPostgres, hasher, logger),
+			LoginUser:       command.NewLoginUserHandler(userRepoPostgres, hasher, tokenManager, logger),
+			UploadFile:      command.NewUploadFileHandler(fileRepoPostgres, objectStorage, workspace, maxFileSize, logger),
+			CreateContainer: command.NewCreateContainerHandler(containerRepoPostgres, containerRuntime, workspace, logger),
 		},
-		Queries: app.Queries{},
+		Queries: app.Queries{
+			ListContainers: query.NewListContainersHandler(containerRepoPostgres, containerRuntime, logger),
+		},
 	}
 }
