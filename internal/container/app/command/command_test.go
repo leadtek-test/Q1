@@ -201,6 +201,17 @@ func (f fakeContainerRuntime) Delete(ctx context.Context, runtimeID string) erro
 	return nil
 }
 
+type fakeContainerActionLocker struct {
+	lockFn func(context.Context, uint, uint) (func(), bool, error)
+}
+
+func (f fakeContainerActionLocker) Lock(ctx context.Context, userID, containerID uint) (func(), bool, error) {
+	if f.lockFn != nil {
+		return f.lockFn(ctx, userID, containerID)
+	}
+	return func() {}, false, nil
+}
+
 func TestCreateUserHandler(t *testing.T) {
 	logger := logrus.New()
 	handler := NewCreateUserHandler(

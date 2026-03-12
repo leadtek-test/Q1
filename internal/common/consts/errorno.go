@@ -53,6 +53,7 @@ const (
 	ErrnoContainerCreateJobQueueFull   = 7008
 	ErrnoContainerCreateJobNotFound    = 7009
 	ErrnoContainerCreateJobUnavailable = 7010
+	ErrnoContainerActionWaitTimeout    = 7011
 
 	// database error 5xxx
 	ErrnoDatabaseError = 5000
@@ -104,6 +105,7 @@ var ErrMsg = map[int]string{
 	ErrnoContainerCreateJobQueueFull:   "container create job queue is full",
 	ErrnoContainerCreateJobNotFound:    "container create job not found",
 	ErrnoContainerCreateJobUnavailable: "container create job service unavailable",
+	ErrnoContainerActionWaitTimeout:    "等待超時（資源已被佔用）請稍後重試",
 
 	ErrnoDatabaseError: "database error",
 }

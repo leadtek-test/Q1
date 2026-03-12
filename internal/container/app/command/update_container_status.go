@@ -2,6 +2,7 @@ package command
 
 import (
 	"context"
+	stderrors "errors"
 	"strings"
 	"time"
 
@@ -36,12 +37,14 @@ type UpdateContainerStatusHandler decorator.CommandHandler[UpdateContainerStatus
 type updateContainerStatusHandler struct {
 	repo    container.Repository
 	runtime container.Runtime
+	locker  ContainerActionLocker
 }
 
 func NewUpdateContainerStatusHandler(
 	repo container.Repository,
 	runtime container.Runtime,
 	logger *logrus.Logger,
+	lockers ...ContainerActionLocker,
 ) UpdateContainerStatusHandler {
 	if repo == nil {
 		panic("update container status's repository is nil")
@@ -49,11 +52,19 @@ func NewUpdateContainerStatusHandler(
 	if runtime == nil {
 		panic("update container status's runtime is nil")
 	}
+	locker := defaultContainerActionLocker
+	if len(lockers) > 0 {
+		if lockers[0] == nil {
+			panic("update container status's locker is nil")
+		}
+		locker = lockers[0]
+	}
 
 	return decorator.ApplyCommandDecorators(
 		updateContainerStatusHandler{
 			repo:    repo,
 			runtime: runtime,
+			locker:  locker,
 		},
 		logger,
 	)
@@ -71,8 +82,20 @@ func (h updateContainerStatusHandler) Handle(ctx context.Context, cmd UpdateCont
 		return nil, errors.NewWithMsgf(consts.ErrnoRequestValidateError, "invalid container id")
 	}
 
+	unlock, waited, err := h.locker.Lock(ctx, cmd.UserID, cmd.ContainerID)
+	if err != nil {
+		if stderrors.Is(err, ErrContainerActionWaitTimeout) {
+			return nil, errors.NewWithMsgf(consts.ErrnoContainerActionWaitTimeout, "waiting timeout(resource has been used)")
+		}
+		return nil, err
+	}
+	defer unlock()
+
 	data, err := h.repo.GetByIDAndUser(ctx, cmd.ContainerID, cmd.UserID)
 	if err != nil {
+		if waited && errors.Errno(err) == consts.ErrnoContainerNotFound {
+			return nil, errors.NewWithMsgf(consts.ErrnoContainerNotFound, "container has been deleted by another request")
+		}
 		return nil, err
 	}
 

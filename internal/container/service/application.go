@@ -63,6 +63,7 @@ func newApplication(_ context.Context) (app.Application, domainjob.CreateContain
 		viper.GetInt("container.create-job-queue-size"),
 		logger,
 	)
+	containerActionLocker := command.NewInMemoryContainerActionLocker()
 
 	return app.Application{
 		Commands: app.Commands{
@@ -70,8 +71,8 @@ func newApplication(_ context.Context) (app.Application, domainjob.CreateContain
 			LoginUser:             command.NewLoginUserHandler(userRepoPostgres, hasher, tokenManager, logger),
 			UploadFile:            command.NewUploadFileHandler(fileRepoPostgres, objectStorage, workspace, maxFileSize, logger),
 			CreateContainerJob:    command.NewCreateContainerJobHandler(createContainerDispatcher, logger),
-			UpdateContainerStatus: command.NewUpdateContainerStatusHandler(containerRepoPostgres, containerRuntime, logger),
-			DeleteContainer:       command.NewDeleteContainerHandler(containerRepoPostgres, containerRuntime, logger),
+			UpdateContainerStatus: command.NewUpdateContainerStatusHandler(containerRepoPostgres, containerRuntime, logger, containerActionLocker),
+			DeleteContainer:       command.NewDeleteContainerHandler(containerRepoPostgres, containerRuntime, logger, containerActionLocker),
 		},
 		Queries: app.Queries{
 			ListContainers:        query.NewListContainersHandler(containerRepoPostgres, containerRuntime, logger),

@@ -3,6 +3,7 @@ package command
 import (
 	"context"
 	stderrors "errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -32,8 +33,10 @@ func TestNewHandlersPanicsOnNilDependency(t *testing.T) {
 
 	assertPanic(t, func() { NewUpdateContainerStatusHandler(nil, fakeContainerRuntime{}, logger) })
 	assertPanic(t, func() { NewUpdateContainerStatusHandler(fakeContainerRepo{}, nil, logger) })
+	assertPanic(t, func() { NewUpdateContainerStatusHandler(fakeContainerRepo{}, fakeContainerRuntime{}, logger, nil) })
 	assertPanic(t, func() { NewDeleteContainerHandler(nil, fakeContainerRuntime{}, logger) })
 	assertPanic(t, func() { NewDeleteContainerHandler(fakeContainerRepo{}, nil, logger) })
+	assertPanic(t, func() { NewDeleteContainerHandler(fakeContainerRepo{}, fakeContainerRuntime{}, logger, nil) })
 }
 
 func TestCreateUserHandlerErrorBranches(t *testing.T) {
@@ -280,6 +283,22 @@ func TestUpdateContainerStatusHandlerAdditionalBranches(t *testing.T) {
 	assertErrno(t, err, consts.ErrnoAuthInvalidToken)
 	_, err = handler.Handle(context.Background(), UpdateContainerStatus{UserID: 1, ContainerID: 0, Action: "start"})
 	assertErrno(t, err, consts.ErrnoRequestValidateError)
+
+	handler = NewUpdateContainerStatusHandler(
+		fakeContainerRepo{},
+		fakeContainerRuntime{},
+		logger,
+		fakeContainerActionLocker{
+			lockFn: func(context.Context, uint, uint) (func(), bool, error) {
+				return nil, true, ErrContainerActionWaitTimeout
+			},
+		},
+	)
+	_, err = handler.Handle(context.Background(), UpdateContainerStatus{UserID: 1, ContainerID: 1, Action: "start"})
+	assertErrno(t, err, consts.ErrnoContainerActionWaitTimeout)
+	if !strings.Contains(err.Error(), "等待超時（資源已被佔用）請稍後重試") {
+		t.Fatalf("unexpected timeout message: %v", err)
+	}
 }
 
 func TestDeleteContainerHandlerAdditionalBranches(t *testing.T) {
@@ -313,6 +332,22 @@ func TestDeleteContainerHandlerAdditionalBranches(t *testing.T) {
 	assertErrno(t, err, consts.ErrnoAuthInvalidToken)
 	_, err = handler.Handle(context.Background(), DeleteContainer{UserID: 1, ContainerID: 0})
 	assertErrno(t, err, consts.ErrnoRequestValidateError)
+
+	handler = NewDeleteContainerHandler(
+		fakeContainerRepo{},
+		fakeContainerRuntime{},
+		logger,
+		fakeContainerActionLocker{
+			lockFn: func(context.Context, uint, uint) (func(), bool, error) {
+				return nil, true, ErrContainerActionWaitTimeout
+			},
+		},
+	)
+	_, err = handler.Handle(context.Background(), DeleteContainer{UserID: 1, ContainerID: 1})
+	assertErrno(t, err, consts.ErrnoContainerActionWaitTimeout)
+	if !strings.Contains(err.Error(), "等待超時（資源已被佔用）請稍後重試") {
+		t.Fatalf("unexpected timeout message: %v", err)
+	}
 }
 
 func assertPanic(t *testing.T, fn func()) {
