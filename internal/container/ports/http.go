@@ -186,11 +186,6 @@ func (H HTTPServer) CreateContainer(c *gin.Context) {
 		return
 	}
 
-	if H.App.Commands.CreateContainerJob == nil {
-		err = errors.New(consts.ErrnoContainerCreateJobUnavailable)
-		return
-	}
-
 	r, err := H.App.Commands.CreateContainerJob.Handle(c, command.CreateContainerJob{
 		UserID:  userID,
 		Name:    req.Name,
@@ -223,11 +218,6 @@ func (H HTTPServer) GetCreateContainerJob(c *gin.Context) {
 	jobID := strings.TrimSpace(c.Param("job_id"))
 	if jobID == "" {
 		err = errors.NewWithMsgf(consts.ErrnoRequestValidateError, "invalid container create job id")
-		return
-	}
-
-	if H.App.Queries.GetCreateContainerJob == nil {
-		err = errors.New(consts.ErrnoContainerCreateJobUnavailable)
 		return
 	}
 
