@@ -67,7 +67,6 @@ Service Composition (service/application.go) 負責組裝依賴
 │       ├── adapters/               # domain 介面實作（postgres/docker/local/jwt/channel）
 │       └── infrastructure/         # DB persistence model 與查詢 builder
 ├── docker-compose.yml              # 本地相依服務（Postgres/MinIO）
-├── go.work                         # 多模組 workspace
 └── workspace_test.go               # workspace 驗證測試
 ```
 
