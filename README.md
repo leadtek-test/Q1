@@ -106,6 +106,11 @@ Service Composition (service/application.go) 負責組裝依賴
   - `{ "errno": number, "message": string, "data": any|null }`
 - 業務成功與失敗由 `errno` 區分結果，status code 由 errorno 決定（OpenAPI 已同步描述）。
 
+### 7. Repository 實現命名小巧思
+`adapters` 層實作 `interface` 時通常使用命名 `Repository種類+Repository+實體類型`，如：User+Repository+Postgres
+這樣未來如果有其他實現如：UserRepositorySQLite，當外部要注入 `user.Repository` 時，只需要輸入 `adapters.NewUserRepository`
+auto complete 就會自動顯示所有可注入的選項。
+
 ## 本地執行
 ### 1. 啟動相依服務
 ```bash
